@@ -48,13 +48,15 @@ LoginDialog::LoginDialog(ChatClient* client, QWidget* parent)
     connect_timer_->setSingleShot(true);
     connect_timer_->setInterval(10000);  // 10 seconds
     connect(connect_timer_, &QTimer::timeout, this, [this]() {
-        if (client_->is_connected()) {
+        if (!client_->is_connected()) {
+            // Only timeout/disconnect if we never got the connected signal
             client_->disconnect_from_server();
+            status_label_->setText(QStringLiteral("连接超时，请检查服务器地址和端口"));
+            set_loading(false);
+            login_btn_->setEnabled(false);
+            register_btn_->setEnabled(false);
         }
-        status_label_->setText(QStringLiteral("连接超时，请检查服务器地址和端口"));
-        set_loading(false);
-        login_btn_->setEnabled(false);
-        register_btn_->setEnabled(false);
+        // If already connected, do nothing (on_connected should have updated UI)
     });
 
     // App-layer login/register response timeout (started on send, after TCP OK)
