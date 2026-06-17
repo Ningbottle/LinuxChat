@@ -8,7 +8,7 @@
 /* ── Canvas (Main Background) ──────────────────────────────── */
 QMainWindow,
 QWidget#centralWidget {
-    background-color: #faf9f7;
+    background-color: transparent;
     font-family: "LXGW WenKai", "霞鹜文楷", "Microsoft YaHei UI", serif;
     font-size: 13px;
     color: #1c1917;
@@ -346,10 +346,28 @@ QWidget#bubbleOther {
     border-radius: 2px;
 }
 
+QWidget#bubbleOther QLabel#msgContent {
+    color: #1c1917;
+}
+
+QWidget#bubbleOther QLabel#msgUsername,
+QWidget#bubbleOther QLabel#msgTimestamp {
+    color: #a8a29e;
+}
+
 QWidget#bubbleSelf {
     background-color: #44403c;
     border: 1px solid #44403c;
     border-radius: 2px;
+}
+
+QWidget#bubbleSelf QLabel#msgContent {
+    color: #faf9f7;
+}
+
+QWidget#bubbleSelf QLabel#msgUsername,
+QWidget#bubbleSelf QLabel#msgTimestamp {
+    color: #d6d3d1;
 }
 
 QLabel#msgUsername {
