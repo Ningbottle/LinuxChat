@@ -25,6 +25,8 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("LinuxChat"));
     app.setApplicationVersion(QStringLiteral("1.0"));
+    // Prevent Qt from quitting when LoginDialog closes (MainWindow not shown yet)
+    app.setQuitOnLastWindowClosed(false);
 
     // Load custom fonts
     if (!FontManager::instance().loadFonts()) {

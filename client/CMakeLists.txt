@@ -22,7 +22,7 @@ file(GLOB_RECURSE HEADERS "include/*.h")
 # Qt resources
 set(RESOURCES resources/resources.qrc)
 
-add_executable(linuxchat_client WIN32
+add_executable(linuxchat_client
     main.cpp
     ${SOURCES}
     ${HEADERS}
