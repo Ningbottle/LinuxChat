@@ -98,16 +98,19 @@ bool ChatClient::send_json(const QJsonObject& msg) {
     QJsonDocument doc(msg);
     QByteArray body = doc.toJson(QJsonDocument::Compact);
 
-    // 4-byte big-endian length prefix
+    // 4-byte big-endian length prefix (manual to avoid any Qt endian issues)
     quint32 body_len = static_cast<quint32>(body.size());
-    quint32 net_len  = qToBigEndian(body_len);
 
     QByteArray frame;
     frame.reserve(4 + body.size());
-    frame.append(reinterpret_cast<const char*>(&net_len), 4);
+    frame.append(static_cast<char>((body_len >> 24) & 0xFF));
+    frame.append(static_cast<char>((body_len >> 16) & 0xFF));
+    frame.append(static_cast<char>((body_len >>  8) & 0xFF));
+    frame.append(static_cast<char>(body_len & 0xFF));
     frame.append(body);
 
     qint64 written = socket_->write(frame);
+    socket_->flush();   // ensure the frame is sent immediately
     return written == frame.size();
 }
 

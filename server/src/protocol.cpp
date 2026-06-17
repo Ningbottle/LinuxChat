@@ -88,6 +88,9 @@ std::optional<std::vector<nlohmann::json>> recv_msgs(ClientSession& session) {
         std::memcpy(&net_len, buf.data(), 4);
         uint32_t body_len = ntohl(net_len);
 
+        // Debug: see what length prefix the client actually sent
+        std::cout << "[Protocol] fd=" << session.fd << " header body_len=" << body_len << std::endl;
+
         // Guard against absurdly large messages (e.g. 16MB).
         // Close the connection: oversized claim is either attack or unrecoverable
         // desync. Drain logic above makes false positives from partials extremely
