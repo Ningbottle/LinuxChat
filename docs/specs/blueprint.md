@@ -1,0 +1,178 @@
+# Blueprint — LinuxChat (瓶子交流器 / Bottle Messenger)
+
+Status: Active | Version: 1.0 | Last Updated: 2026-06-17
+
+## Purpose
+
+C/S 架构即时通讯系统:Linux epoll 服务端 ↔ Windows Qt6 客户端,JSON-over-TCP 自定义协议。本文整合原 `ARCHITECTURE.md`(系统结构)与 `CONTRACT.md`(模块契约),作为 CDD 架构契约的唯一来源。原文件已备份至 `docs/legacy/`。
+
+## Architecture (high-level)
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  Windows Client (Qt6 Widgets)                                   │
+│  ┌────────────┐  ┌──────────────┐  ┌────────────────────────┐   │
+│  │ LoginDialog │  │ ChatClient   │  │ MainWindow             │   │
+│  │ (login/reg) │  │ (TCP+JSON)   │  │ (sidebar+chatTabs)     │   │
+│  └─────┬──────┘  └──────┬───────┘  └───────────┬────────────┘   │
+│        └────────────────┼───────────────────────┘               │
+│                         │ QTcpSocket                            │
+└─────────────────────────┼───────────────────────────────────────┘
+                          │ JSON-over-TCP (4B BE prefix)
+┌─────────────────────────┼───────────────────────────────────────┐
+│  Linux Server (epoll)   │                                       │
+│  ┌──────────────────────┴───────────────────────────────────┐   │
+│  │ EpollServer (main thread: epoll_wait loop, level-trig)   │   │
+│  │  ├── accept4() → ClientSession                            │   │
+│  │  ├── recv_msgs() → parse frames                           │   │
+│  │  └── pool_.enqueue() → dispatch to workers                │   │
+│  └─────────────────────┬─────────────────────────────────────┘   │
+│                        │                                        │
+│  ┌─────────────────────┴─────────────────────────────────────┐   │
+│  │ ThreadPool (N workers)                                     │   │
+│  │  └── handle_message(session, json)                         │   │
+│  │       ├── REGISTER/LOGIN → Database                       │   │
+│  │       ├── BROADCAST → Database + broadcast()              │   │
+│  │       ├── PRIVATE → Database + send_to_fd()               │   │
+│  │       └── HISTORY_REQ → Database::get_history()           │   │
+│  └─────────────────────┬─────────────────────────────────────┘   │
+│  ┌─────────────────────┴─────────────────────────────────────┐   │
+│  │ Database (SQLite3, WAL, mutex-protected)                  │   │
+│  │  ├── users(username PK, password_hash, created_at)        │   │
+│  │  └── messages(id, from_user, to_user, content, timestamp) │   │
+│  └───────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+- **Components**: EpollServer(主线程 IO) / ThreadPool(N worker 业务) / Database(SQLite 持久化) / ClientSession(连接态) / ChatClient+LoginDialog+MainWindow(客户端)
+- **Data flow**: 客户端 QTcpSocket → 服务端 epoll 就绪 → recv_msgs 组帧 → worker 处理 → Database 读写 → send_msg 回客户端
+- **Boundaries**: TCP 帧边界 = 4 字节大端长度 + JSON;session 边界 = fd;线程边界 = 主线程持有 sessions_mutex_,worker 通过 enqueue 解耦
+
+## Key Invariants (MUST NOT BREAK)
+
+1) **帧格式不变**:每条消息 = `[4 字节大端 uint32 长度][JSON UTF-8 正文]`,长度上限 16MB。客户端与服务端编解码必须严格对齐(见 `docs/protocol.md`)。
+2) **认证前白名单**:未认证 session(`session.username` 为空)只允许 `REGISTER`/`LOGIN`,其余返回 `NOT_AUTHENTICATED`。
+3) **`to="__room__"` 语义**:表示公共聊天室广播历史;`to=用户名` 表示私聊历史。
+4) **广播排除**:登录成功的用户自己也会收到 USER_LIST;离开通知用 `broadcast(msg, exclude_username)` 排除自己。
+5) **线程安全**:所有对 `sessions_` 的访问必须持 `sessions_mutex_`;所有对 SQLite 的访问必须持 `db_mutex_`。
+
+## Interfaces / Contracts
+
+### Database API (`server/include/database.h`)
+```cpp
+class Database {
+    explicit Database(const std::string& db_path);
+    bool register_user(const std::string& username, const std::string& password_hash);
+    bool verify_user(const std::string& username, const std::string& password_hash);
+    void store_message(const std::string& from, const std::string& to,
+                       const std::string& content, int64_t timestamp);
+    std::vector<nlohmann::json> get_history(const std::string& to, int limit = 20);
+};
+```
+
+### MessageHandler 签名 (`server/main.cpp`)
+```cpp
+void handle_message(ClientSession& session, const nlohmann::json& msg);
+void handle_disconnect(ClientSession& session);
+```
+
+### ChatClient 信号 (`client/include/chat_client.h`)
+```
+connected(), disconnected(), connection_error(QString)
+login_ok(QString), error_received(QString code, QString content)
+broadcast_received(from, content, timestamp)
+private_received(from, to, content, timestamp)
+user_list_updated(QStringList), history_received(target, QJsonArray)
+notify_received(QString)
+```
+
+### 协议消息类型(完整表见 `docs/protocol.md`)
+- C→S: REGISTER, LOGIN, LOGOUT, BROADCAST, PRIVATE, FRIEND_REQ(未实现), FRIEND_ACK, BLACKLIST_*, HISTORY_REQ
+- S→C: LOGIN_OK, BROADCAST, PRIVATE, USER_LIST, NOTIFY, HISTORY_RESP, ERROR
+
+## Directory Overview
+
+```text
+LinuxChat/
+├── client/                 # Qt6 客户端 (Windows)
+│   ├── include/           # chat_client/login_dialog/main_window/chat_view/font_manager .h
+│   ├── src/               # 对应 .cpp
+│   ├── resources/         # fonts/ images/ style.qss resources.qrc
+│   └── CMakeLists.txt
+├── server/                 # epoll 服务端 (Linux)
+│   ├── include/           # epoll_server/thread_pool/client_session/protocol/database .h
+│   ├── src/               # 对应 .cpp
+│   ├── third_party/nlohmann/json.hpp  # vendored
+│   └── CMakeLists.txt
+├── tests/                  # Google Test (FetchContent)
+│   ├── test_protocol.cpp / test_database.cpp / test_message_handler.cpp
+│   └── CMakeLists.txt
+├── docs/
+│   ├── specs/prd.md       # 产品契约
+│   ├── specs/blueprint.md # 本文件
+│   ├── protocol.md        # 通信协议规范
+│   ├── INDEX.md           # 生成式上下文快照
+│   ├── JOURNAL.md         # 实施日志
+│   ├── legacy/            # 迁移前文档备份 (CONTRACT/ARCHITECTURE/TODO/README .legacy.md)
+│   └── prompts/PROMPT-INDEX.md
+├── AGENTS.md              # CDD agent 契约
+├── TODO.md                # 执行计划
+└── README.md              # runbook 入口
+```
+
+## Runbook
+
+### Setup — Linux 服务端
+```bash
+# 依赖 (Ubuntu/Debian)
+sudo apt install build-essential cmake libsqlite3-dev libssl-dev
+
+# 编译
+cd server && mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release && make -j$(nproc)
+# 运行 (默认端口 8080)
+./linuxchat_server [--port 9090] [--workers 4] [--db linuxchat.db]
+```
+
+### Setup — Windows 客户端
+```powershell
+# 前置: Qt 6.8.0 msvc2022_64, Visual Studio 2022, CMake 3.16+
+cd client; mkdir build; cd build
+cmake .. -G "Visual Studio 18 2026" -DCMAKE_PREFIX_PATH="D:/Qt/6.8.0/msvc2022_64"
+cmake --build . --config Release
+cd Release; ./linuxchat_client.exe
+```
+
+### Dev / Test
+```bash
+# 服务端测试 (Google Test, 需先 build tests/)
+cd tests && mkdir build && cd build
+cmake .. && make -j && ctest --output-on-failure
+```
+
+### Deploy
+- 服务端:Linux 机器运行 `linuxchat_server`,确保 8080 端口在**本机防火墙(ufw/firewalld)**和**云安全组(阿里云等)**均放行
+- 客户端:Windows 运行 exe,登录界面填写服务端公网 IP + 端口
+
+## Observability
+
+- **Logs**: 服务端 stdout,格式 `[Component] message`(`[Server]`/`[Handler]`/`[Database]`/`[Protocol]`)。客户端 `qDebug()` 输出。
+- **Metrics**: 无(课设范围)
+- **Error taxonomy**: 见 `docs/protocol.md` 错误码表(USER_EXISTS/WRONG_PASSWORD/TARGET_OFFLINE/NOT_AUTHENTICATED/INVALID_MSG 等)
+
+## Security
+
+- **密码**: SHA-256(OpenSSL)哈希存储,不存明文(注:见 Known Issue #3,API 废弃)
+- **传输**: 明文 TCP(非 TLS),课设可接受
+- **SQL 注入**: 全部 prepared statement(sqlite3_prepare_v2 + bind)
+- **权限**: 课设范围无 RBAC
+
+## Rollback Plan
+
+- 每个修复 Step 独立 commit,可 `git revert` 单步回滚
+- `docs/legacy/` 保留迁移前全文,文档层可还原
+- Database schema 用 `CREATE TABLE IF NOT EXISTS`,无破坏性迁移
+
+## 已知偏差(相对课设原文)
+
+- 课设原文要求客户端为 **Linux gnome** 图形界面,本实现为 **Windows Qt6**(架构仍为 C/S,仅运行平台/框架不同)。见 PRD Open Questions #1。

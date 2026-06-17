@@ -67,6 +67,8 @@ private:
     int         wakeup_pipe_[2] = {-1, -1}; ///< pipe for stop() wakeup
     bool        running_ = false;
 
+    uint64_t    next_generation_ = 1;  ///< for ClientSession::generation (fd reuse protection)
+
     ThreadPool  pool_;
 
     /// fd → ClientSession

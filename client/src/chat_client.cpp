@@ -29,6 +29,7 @@ ChatClient::ChatClient(QObject* parent)
 // ── Connection Management ──────────────────────────────────────────
 
 void ChatClient::connect_to_server(const QString& host, quint16 port) {
+    qDebug("[ChatClient] Connecting to %s:%d", qUtf8Printable(host), port);
     recv_buf_.clear();
     socket_->connectToHost(host, port);
 }
@@ -117,13 +118,14 @@ void ChatClient::on_socket_connected() {
 }
 
 void ChatClient::on_socket_disconnected() {
-    qDebug("[ChatClient] Socket disconnected");
+    qDebug("[ChatClient] Socket disconnected, state=%d, error='%s', buf=%d bytes",
+           socket_->state(), qUtf8Printable(socket_->errorString()), recv_buf_.size());
     recv_buf_.clear();
     emit disconnected();
 }
 
 void ChatClient::on_socket_error(QAbstractSocket::SocketError error) {
-    Q_UNUSED(error)
+    qDebug("[ChatClient] Socket error code=%d: %s", error, qUtf8Printable(socket_->errorString()));
     emit connection_error(socket_->errorString());
 }
 

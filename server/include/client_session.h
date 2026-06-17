@@ -11,6 +11,7 @@ struct ClientSession {
     int         fd;           ///< Socket file descriptor
     std::string username;     ///< Empty = not yet authenticated
     std::vector<uint8_t> recv_buf; ///< Accumulates raw bytes for frame extraction
+    uint64_t    generation = 0; ///< Incremented per new connection on this fd number (detect reuse)
 
     explicit ClientSession(int fd) : fd(fd) {}
 

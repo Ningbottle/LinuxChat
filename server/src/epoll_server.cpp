@@ -184,7 +184,9 @@ void EpollServer::handle_new_connection() {
     }
 
     // Create session
+    uint64_t gen = next_generation_++;
     auto session = std::make_unique<ClientSession>(client_fd);
+    session->generation = gen;
 
     // Register with epoll
     struct epoll_event ev{};
@@ -220,19 +222,30 @@ void EpollServer::handle_client_event(int fd) {
         session = it->second.get();
     }
 
-    // Read data and extract complete messages
+    // Read (drained inside recv_msgs for LT epoll safety) and extract complete messages.
+    // Oversized or true error/EOF returns nullopt → close.
     auto msgs = Protocol::recv_msgs(*session);
 
     if (!msgs.has_value()) {
-        // Connection closed or error
+        // Connection closed or error (incl. oversized frame)
         remove_client(fd);
         return;
     }
 
     // Dispatch each message to worker thread
     for (auto& msg : *msgs) {
+        // Light diagnostic for auth path (type only, no secrets)
+        if (!session->is_authenticated()) {
+            std::string t = msg.value("type", std::string{});
+            if (t == "LOGIN" || t == "REGISTER") {
+                std::cout << "[Server] Auth frame received fd=" << fd << " type=" << t << "\n";
+            }
+        }
         if (on_message_) {
-            pool_.enqueue([this, fd, msg]() {
+            // Capture fd + generation. Worker must re-validate generation to
+            // protect against fd reuse after close + rapid new accept.
+            uint64_t gen_at_dispatch = session->generation;
+            pool_.enqueue([this, fd, gen_at_dispatch, msg]() {
                 // IMPORTANT: Look up session WITHOUT holding sessions_mutex_
                 // to avoid deadlock. The handler (on_message_) may call back
                 // into broadcast()/find_fd()/send_to_fd() which also lock
@@ -243,6 +256,10 @@ void EpollServer::handle_client_event(int fd) {
                     auto it = sessions_.find(fd);
                     if (it == sessions_.end()) return;
                     sess = it->second.get();
+                    if (sess->generation != gen_at_dispatch) {
+                        // fd was recycled; drop stale task
+                        return;
+                    }
                 }
 
                 try {
@@ -283,7 +300,7 @@ void EpollServer::remove_client(int fd) {
     if (removed_session) {
         std::cout << "[Server] Client disconnected: "
                   << (removed_session->is_authenticated() ? removed_session->username : "(unauth)")
-                  << " (fd=" << fd << ")\n";
+                  << " (fd=" << fd << ", gen=" << removed_session->generation << ")\n";
     }
 
     close(fd);

@@ -66,4 +66,6 @@ private:
 
     // Connection timeout (prevents UI from hanging indefinitely)
     QTimer*      connect_timer_ = nullptr;
+    // Separate timer for app-layer LOGIN/REGISTER response after TCP connected
+    QTimer*      login_timer_   = nullptr;
 };

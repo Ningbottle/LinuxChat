@@ -58,24 +58,24 @@ bool send_ok(int fd, const std::string& type, const std::string& from) {
 }
 
 std::optional<std::vector<nlohmann::json>> recv_msgs(ClientSession& session) {
-    // Read available bytes into session's buffer
+    // Drain all available bytes for level-triggered epoll (loop until EAGAIN).
+    // Prevents partial frames / length-prefix desync across multiple wakeups.
     uint8_t tmp[4096];
-    ssize_t n = ::recv(session.fd, tmp, sizeof(tmp), 0);
-
-    if (n == 0) {
-        // Connection closed by peer
-        return std::nullopt;
-    }
-    if (n < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            // No data right now (non-blocking), not an error
-            // Still try to parse what we have
-        } else {
-            return std::nullopt; // Real error
+    for (;;) {
+        ssize_t n = ::recv(session.fd, tmp, sizeof(tmp), 0);
+        if (n > 0) {
+            session.recv_buf.insert(session.recv_buf.end(), tmp, tmp + n);
+            continue;  // try to drain more
         }
-    } else {
-        // Append received bytes to session buffer
-        session.recv_buf.insert(session.recv_buf.end(), tmp, tmp + n);
+        if (n == 0) {
+            // Connection closed by peer
+            return std::nullopt;
+        }
+        // n < 0
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            break;  // no more data right now; parse what we have
+        }
+        return std::nullopt; // real error
     }
 
     // Extract all complete frames from the buffer
@@ -88,10 +88,14 @@ std::optional<std::vector<nlohmann::json>> recv_msgs(ClientSession& session) {
         std::memcpy(&net_len, buf.data(), 4);
         uint32_t body_len = ntohl(net_len);
 
-        // Guard against absurdly large messages (e.g. 16MB)
+        // Guard against absurdly large messages (e.g. 16MB).
+        // Close the connection: oversized claim is either attack or unrecoverable
+        // desync. Drain logic above makes false positives from partials extremely
+        // unlikely for valid small frames (LOGIN etc.).
         if (body_len > 16 * 1024 * 1024) {
             std::cerr << "[Protocol] fd=" << session.fd
                       << " sent oversized frame (" << body_len << " bytes), dropping.\n";
+            buf.clear();
             return std::nullopt;
         }
 
