@@ -97,7 +97,7 @@ void LoginDialog::setup_ui() {
     auto* conn_layout = new QHBoxLayout;
     host_edit_ = new QLineEdit;
     host_edit_->setPlaceholderText(QStringLiteral("服务器地址"));
-    host_edit_->setText(QStringLiteral("127.0.0.1"));
+    host_edit_->setText(QStringLiteral("120.55.63.32"));
     host_edit_->setFont(FontManager::instance().bodyFont());
     conn_layout->addWidget(host_edit_, 3);
 
@@ -268,6 +268,7 @@ void LoginDialog::on_register_clicked() {
 }
 
 void LoginDialog::on_login_ok(const QString& /*username*/) {
+    qDebug("[LoginDialog] Login OK, accepting dialog");
     connect_timer_->stop();
     set_loading(false);
     accept(); // Close dialog, proceed to main window

@@ -51,11 +51,15 @@ int main(int argc, char* argv[]) {
     }
 
     // Login successful - show main window
+    qDebug() << "[main] Login successful, creating MainWindow";
     MainWindow window(&client, login.username());
+    qDebug() << "[main] Showing MainWindow";
     window.show();
 
     // Request initial history load
+    qDebug() << "[main] Sending history request";
     client.send_history_req(QStringLiteral("__room__"));
 
+    qDebug() << "[main] Starting event loop";
     return app.exec();
 }

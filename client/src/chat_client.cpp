@@ -6,6 +6,7 @@
 #include "chat_client.h"
 #include <QtEndian>  // qToBigEndian, qFromBigEndian
 #include <QTimer>
+#include <QDebug>
 #include <cstring>
 
 // ── Constructor ────────────────────────────────────────────────────
@@ -116,6 +117,7 @@ void ChatClient::on_socket_connected() {
 }
 
 void ChatClient::on_socket_disconnected() {
+    qDebug("[ChatClient] Socket disconnected");
     recv_buf_.clear();
     emit disconnected();
 }

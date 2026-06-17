@@ -1,7 +1,7 @@
 /* ============================================================
    LinuxChat Qt5 Client — style.qss
-   Design System: Light-Space Liquid Glass
-   Source of Truth: DESIGN.md
+   Design System: 报纸复古 + 紫藤萝瀑布
+   Source of Truth: design-overview.html
    RULE: All styles here. Never inline setStyleSheet() in code.
    ============================================================ */
 
@@ -9,36 +9,38 @@
 QMainWindow,
 QWidget#centralWidget {
     background-color: #faf9f7;
-    font-family: "LXGW WenKai", "Microsoft YaHei UI", system-ui, sans-serif;
-    font-size: 15px;
+    font-family: "LXGW WenKai", "霞鹜文楷", "Microsoft YaHei UI", serif;
+    font-size: 13px;
     color: #1c1917;
 }
 
-/* ── Dialog (Login/Register) ────────────────────────────────── */
+/* ── Dialog (Login/Register) — Newspaper Style ─────────────── */
 QDialog {
-    background-color: #FFFFFF;
-    font-family: "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+    background-color: #faf9f7;
+    font-family: "LXGW WenKai", "霞鹜文楷", "Microsoft YaHei UI", serif;
 }
 
 /* ── Sidebar Panel (applied via QFrame#sidebar) ─────────────── */
 QFrame#sidebar {
-    background-color: #ffffff;
-    border: 1px solid #e7e5e4;
-    border-radius: 2px;
+    background-color: #faf9f7;
+    border: none;
+    border-right: 1px solid #e7e5e4;
+    border-radius: 0px;
 }
 
 /* ── Section Headers in Sidebar ─────────────────────────────── */
 QLabel#sectionHeader {
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 10px;
+    font-weight: 500;
     color: #a8a29e;
-    padding: 4px 12px 2px 12px;
-    letter-spacing: 0.5px;
+    padding: 8px 12px 4px 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
 }
 
 /* ── Current User Info Bar ───────────────────────────────────── */
 QLabel#currentUser {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: #1c1917;
     padding: 0px 4px;
@@ -51,16 +53,16 @@ QListWidget#blackList {
     background-color: transparent;
     border: none;
     outline: none;
-    padding: 4px;
+    padding: 4px 8px;
 }
 
 QListWidget#userList::item,
 QListWidget#friendList::item,
 QListWidget#blackList::item {
-    height: 36px;
+    height: 28px;
     padding: 10px 12px;
     border-radius: 2px;
-    color: #1c1917;
+    color: #44403c;
     font-size: 13px;
     font-weight: 400;
 }
@@ -73,10 +75,11 @@ QListWidget#blackList::item:hover {
 
 QListWidget#userList::item:selected,
 QListWidget#friendList::item:selected {
-    background-color: #f5f5f4;
+    background-color: #f0efed;
     border-left: 2px solid #44403c;
+    padding-left: 10px;
     color: #1c1917;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 /* ── Online Status Dot ───────────────────────────────────────── */
@@ -101,18 +104,19 @@ QLabel#offlineDot {
 /* ── Buttons: Primary ────────────────────────────────────────── */
 QPushButton#primaryBtn {
     background-color: #44403c;
-    color: #ffffff;
+    color: #faf9f7;
     border: 1px solid #44403c;
     border-radius: 2px;
     padding: 10px;
     font-size: 13px;
     font-weight: 500;
+    letter-spacing: 3px;
     min-height: 34px;
 }
 
 QPushButton#primaryBtn:hover {
-    background-color: #57534e;
-    border-color: #57534e;
+    background-color: #1c1917;
+    border-color: #1c1917;
 }
 
 QPushButton#primaryBtn:pressed {
@@ -122,49 +126,51 @@ QPushButton#primaryBtn:pressed {
 QPushButton#primaryBtn:disabled {
     background-color: #a8a29e;
     border-color: #a8a29e;
-    color: rgba(255, 255, 255, 0.60);
+    color: rgba(250, 249, 247, 0.60);
 }
 
 /* ── Buttons: Secondary ──────────────────────────────────────── */
 QPushButton#secondaryBtn {
-    background-color: transparent;
-    color: #1c1917;
+    background-color: #ffffff;
+    color: #78776c;
     border: 1px solid #d6d3d1;
     border-radius: 2px;
     padding: 10px;
     font-size: 13px;
-    font-weight: 400;
+    font-weight: 500;
+    letter-spacing: 3px;
     min-height: 34px;
 }
 
 QPushButton#secondaryBtn:hover {
-    background-color: #f5f5f4;
     border-color: #78776c;
+    color: #44403c;
 }
 
 QPushButton#secondaryBtn:pressed {
-    background-color: #e7e5e4;
+    background-color: #f5f5f4;
 }
 
-/* ── Buttons: Danger ─────────────────────────────────────────── */
+/* ── Buttons: Danger (Disconnect) ────────────────────────────── */
 QPushButton#dangerBtn {
     background-color: transparent;
-    color: #ef4444;
+    color: #a8a29e;
     border: 1px solid #e7e5e4;
     border-radius: 2px;
     padding: 6px 8px;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 400;
     min-height: 30px;
 }
 
 QPushButton#dangerBtn:hover {
-    background-color: #fef2f2;
-    border-color: #ef4444;
+    border-color: #d6d3d1;
+    color: #78776c;
+    background-color: #faf9f7;
 }
 
 QPushButton#dangerBtn:pressed {
-    background-color: #fee2e2;
+    background-color: #f5f5f4;
 }
 
 /* ── Input Fields ────────────────────────────────────────────── */
@@ -175,7 +181,7 @@ QTextEdit#inputField {
     border-radius: 2px;
     color: #1c1917;
     padding: 10px 12px;
-    font-size: 15px;
+    font-size: 13px;
     selection-background-color: rgba(68, 64, 60, 0.25);
     selection-color: #1c1917;
 }
@@ -189,6 +195,10 @@ QTextEdit#inputField:focus {
 
 QLineEdit:disabled {
     background-color: #f5f5f4;
+    color: #a8a29e;
+}
+
+QLineEdit::placeholder {
     color: #a8a29e;
 }
 
@@ -226,24 +236,24 @@ QTabWidget#chatTabs QTabBar::tab:hover:!selected {
 /* ── Message Area ────────────────────────────────────────────── */
 QScrollArea#messageArea,
 QWidget#messageContainer {
-    background-color: transparent;
+    background-color: #faf9f7;
     border: none;
 }
 
 /* ── Divider Line ────────────────────────────────────────────── */
 QFrame[frameShape="4"] {
-    color: rgba(0, 0, 0, 0.06);
+    color: #e7e5e4;
     max-height: 1px;
 }
 
 /* ── Tooltips ────────────────────────────────────────────────── */
 QToolTip {
-    background-color: #1C1C1E;
-    color: #FFFFFF;
+    background-color: #1c1917;
+    color: #faf9f7;
     border: none;
-    border-radius: 6px;
+    border-radius: 2px;
     padding: 4px 8px;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 /* ── Scrollbars ──────────────────────────────────────────────── */
@@ -255,13 +265,13 @@ QScrollBar:vertical {
 }
 
 QScrollBar::handle:vertical {
-    background: rgba(0, 0, 0, 0.15);
+    background: rgba(120, 119, 108, 0.3);
     border-radius: 2px;
     min-height: 24px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(120, 119, 108, 0.5);
 }
 
 QScrollBar::add-line:vertical,
@@ -282,13 +292,13 @@ QScrollBar:horizontal {
 }
 
 QScrollBar::handle:horizontal {
-    background: rgba(0, 0, 0, 0.15);
+    background: rgba(120, 119, 108, 0.3);
     border-radius: 2px;
     min-width: 24px;
 }
 
 QScrollBar::handle:horizontal:hover {
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(120, 119, 108, 0.5);
 }
 
 QScrollBar::add-line:horizontal,
@@ -300,31 +310,31 @@ QScrollBar::sub-line:horizontal {
 /* ── Context Menu ────────────────────────────────────────────── */
 QMenu {
     background-color: #FFFFFF;
-    border: 1px solid rgba(0, 0, 0, 0.10);
-    border-radius: 10px;
+    border: 1px solid #e7e5e4;
+    border-radius: 2px;
     padding: 6px 0px;
     font-size: 13px;
-    color: #1C1C1E;
+    color: #1c1917;
 }
 
 QMenu::item {
     padding: 6px 20px;
-    border-radius: 6px;
+    border-radius: 2px;
     margin: 1px 4px;
 }
 
 QMenu::item:selected {
-    background-color: rgba(10, 132, 255, 0.10);
-    color: #0A84FF;
+    background-color: #f5f5f4;
+    color: #1c1917;
 }
 
 QMenu::item:disabled {
-    color: #AEAEB2;
+    color: #a8a29e;
 }
 
 QMenu::separator {
     height: 1px;
-    background-color: rgba(0, 0, 0, 0.06);
+    background-color: #e7e5e4;
     margin: 4px 12px;
 }
 
@@ -343,9 +353,9 @@ QWidget#bubbleSelf {
 }
 
 QLabel#msgUsername {
-    font-size: 12px;
-    font-weight: 500;
-    color: #78776c;
+    font-size: 11px;
+    font-weight: 400;
+    color: #a8a29e;
 }
 
 QLabel#msgContent {
@@ -356,7 +366,7 @@ QLabel#msgContent {
 }
 
 QLabel#msgTimestamp {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 400;
     color: #a8a29e;
     font-family: "Cascadia Code", "Consolas", monospace;
@@ -383,6 +393,7 @@ QLabel#unreadBadge {
     min-width: 16px;
     min-height: 16px;
 }
+
 /* ── Login Dialog — Newspaper Style ─────────────────────────── */
 #loginDialog {
     background-color: #faf9f7;
@@ -391,10 +402,14 @@ QLabel#unreadBadge {
 #loginDialog #loginTitle {
     color: #1c1917;
     font-weight: 600;
+    font-size: 20px;
+    letter-spacing: 3px;
 }
 
 #loginDialog #loginSubtitle {
-    color: #78776c;
+    color: #a8a29e;
+    font-size: 11px;
+    letter-spacing: 2px;
 }
 
 #loginDialog QLineEdit {
@@ -402,7 +417,7 @@ QLabel#unreadBadge {
     border-radius: 2px;
     padding: 10px 12px;
     background-color: #ffffff;
-    font-size: 15px;
+    font-size: 13px;
     color: #1c1917;
 }
 
@@ -411,26 +426,129 @@ QLabel#unreadBadge {
     background-color: #ffffff;
 }
 
-#loginDialog QPushButton {
+#loginDialog QLineEdit::placeholder {
+    color: #a8a29e;
+}
+
+#loginDialog QPushButton#primaryBtn {
     background-color: #44403c;
-    color: #ffffff;
+    color: #faf9f7;
     border: 1px solid #44403c;
     border-radius: 2px;
     padding: 10px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
+    letter-spacing: 3px;
 }
 
-#loginDialog QPushButton:hover {
-    background-color: #57534e;
+#loginDialog QPushButton#primaryBtn:hover {
+    background-color: #1c1917;
+    border-color: #1c1917;
 }
 
-#loginDialog QPushButton:disabled {
+#loginDialog QPushButton#primaryBtn:disabled {
     background-color: #a8a29e;
     border-color: #a8a29e;
 }
 
-#loginDialog #loginStatus {
+#loginDialog QPushButton#secondaryBtn {
+    background-color: #ffffff;
     color: #78776c;
+    border: 1px solid #d6d3d1;
+    border-radius: 2px;
+    padding: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 3px;
+}
+
+#loginDialog QPushButton#secondaryBtn:hover {
+    border-color: #78776c;
+    color: #44403c;
+}
+
+#loginDialog #loginStatus {
+    color: #a8a29e;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+}
+
+/* ── Top Bar ─────────────────────────────────────────────────── */
+QFrame#topBar {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e7e5e4;
+}
+
+QLabel#topBarTitle {
+    font-family: "Newsreader", "Noto Serif SC", serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1c1917;
+    letter-spacing: 2px;
+}
+
+QLabel#statusConnected {
+    font-size: 11px;
+    color: #10b981;
+}
+
+QLabel#statusDisconnected {
+    font-size: 11px;
+    color: #a8a29e;
+}
+
+/* ── Chat Header ─────────────────────────────────────────────── */
+QFrame#chatHeader {
+    background-color: rgba(250, 249, 247, 0.9);
+    border-bottom: 1px solid #e7e5e4;
+}
+
+QLabel#chatHeaderTitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1c1917;
+    letter-spacing: 0.5px;
+}
+
+/* ── Input Area ──────────────────────────────────────────────── */
+QFrame#inputArea {
+    background-color: #ffffff;
+    border-top: 1px solid #e7e5e4;
+}
+
+/* ── Send Button ─────────────────────────────────────────────── */
+QPushButton#sendBtn {
+    background-color: #44403c;
+    color: #faf9f7;
+    border: none;
+    border-radius: 2px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+QPushButton#sendBtn:hover {
+    background-color: #1c1917;
+}
+
+QPushButton#sendBtn:pressed {
+    background-color: #44403c;
+}
+
+/* ── Avatar ──────────────────────────────────────────────────── */
+QLabel#avatar {
+    background-color: #d6d3d1;
+    border-radius: 14px;
+    min-width: 28px;
+    max-width: 28px;
+    min-height: 28px;
+    max-height: 28px;
     font-size: 12px;
+    font-weight: 600;
+    color: #44403c;
+}
+
+QLabel#avatarOnline {
+    background-color: #78776c;
+    color: #faf9f7;
 }

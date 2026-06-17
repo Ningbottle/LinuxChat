@@ -53,7 +53,7 @@ void ChatView::setup_ui() {
     input_layout->addWidget(input_field_, 1);
 
     send_btn_ = new QPushButton(QStringLiteral("发送"));
-    send_btn_->setObjectName(QStringLiteral("primaryBtn"));
+    send_btn_->setObjectName(QStringLiteral("sendBtn"));
     send_btn_->setFixedWidth(80);
     send_btn_->setFixedHeight(36);
     input_layout->addWidget(send_btn_);

@@ -13,6 +13,7 @@
 #include <QPainter>
 #include <QSvgRenderer>
 #include <QTimer>
+#include <QDebug>
 #include <QCoreApplication>
 
 // -- Constructor -------------------------------------------------------
@@ -23,11 +24,13 @@ MainWindow::MainWindow(ChatClient* client, const QString& username,
     , client_(client)
     , my_username_(username)
 {
+    qDebug("[MainWindow] Constructor start");
     setup_ui();
     setup_connections();
 
     setWindowTitle(QStringLiteral("瓶子交流器 — %1").arg(username));
     setFixedSize(960, 640);
+    qDebug("[MainWindow] Constructor complete");
 }
 
 // -- UI Setup ----------------------------------------------------------
@@ -46,17 +49,15 @@ void MainWindow::setup_ui() {
     top_bar->setContentsMargins(16, 12, 16, 12);
 
     logo_label_ = new QLabel(QStringLiteral("瓶子交流器"));
-    logo_label_->setObjectName(QStringLiteral("logoLabel"));
+    logo_label_->setObjectName(QStringLiteral("topBarTitle"));
     logo_label_->setFont(FontManager::instance().titleFont(16));
-    logo_label_->setStyleSheet(QStringLiteral("color: #1c1917; font-weight: 600;"));
     top_bar->addWidget(logo_label_);
 
     top_bar->addStretch();
 
     status_label_ = new QLabel(QStringLiteral("● 已连接"));
-    status_label_->setObjectName(QStringLiteral("statusLabel"));
+    status_label_->setObjectName(QStringLiteral("statusConnected"));
     status_label_->setFont(FontManager::instance().bodyFont(11));
-    status_label_->setStyleSheet(QStringLiteral("color: #10b981;"));
     top_bar->addWidget(status_label_);
 
     main_layout->addLayout(top_bar);
@@ -237,12 +238,15 @@ void MainWindow::on_notify_received(const QString& content) {
 }
 
 void MainWindow::on_disconnected() {
+    qDebug("[MainWindow] on_disconnected called");
     online_dot_->setObjectName(QStringLiteral("offlineDot"));
     online_dot_->style()->unpolish(online_dot_);
     online_dot_->style()->polish(online_dot_);
 
+    status_label_->setObjectName(QStringLiteral("statusDisconnected"));
+    status_label_->style()->unpolish(status_label_);
+    status_label_->style()->polish(status_label_);
     status_label_->setText(QStringLiteral("● 已断开"));
-    status_label_->setStyleSheet(QStringLiteral("color: #a8a29e;"));
 
     room_view_->append_system_message(QStringLiteral("与服务器的连接已断开"));
 }
@@ -291,6 +295,7 @@ void MainWindow::on_tab_send_requested() {
 }
 
 void MainWindow::on_disconnect_clicked() {
+    qDebug("[MainWindow] Disconnect button clicked, sending LOGOUT");
     client_->send_logout();
     // Give server time to process LOGOUT before closing TCP connection.
     // Without this, disconnect_from_server() kills the socket before
@@ -326,6 +331,7 @@ ChatView* MainWindow::chat_view_at(int tab_index) const {
 // -- Window Close -------------------------------------------------------
 
 void MainWindow::closeEvent(QCloseEvent* event) {
+    qDebug("[MainWindow] closeEvent triggered, sending LOGOUT");
     client_->send_logout();
     // Brief flush so the LOGOUT frame actually leaves the socket
     // before the process exits and tears down the TCP stack.
