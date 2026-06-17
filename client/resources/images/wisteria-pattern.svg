@@ -1,0 +1,51 @@
+<svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
+  <!-- 主藤蔓 - 棕色老藤 -->
+  <path d="M0 20 Q80 40 150 30 Q220 20 300 50" stroke="#8b7355" stroke-width="2.5" fill="none"/>
+  <path d="M0 80 Q100 60 180 90 Q260 120 300 80" stroke="#8b7355" stroke-width="2" fill="none"/>
+  <path d="M50 0 Q30 80 60 150 Q90 220 50 300" stroke="#8b7355" stroke-width="2" fill="none"/>
+  <path d="M200 0 Q220 100 190 180 Q160 260 200 300" stroke="#8b7355" stroke-width="1.8" fill="none"/>
+  
+  <!-- 垂下的花穗 - 紫藤萝瀑布 -->
+  <path d="M80 30 Q75 60 78 90 Q80 120 76 150" stroke="#c8a2d8" stroke-width="1.5" fill="none"/>
+  <circle cx="78" cy="50" r="5" fill="#d8bfd8"/>
+  <circle cx="76" cy="65" r="4.5" fill="#e8d5e8"/>
+  <circle cx="79" cy="80" r="5" fill="#d8bfd8"/>
+  <circle cx="77" cy="95" r="4" fill="#e8d5e8"/>
+  <circle cx="78" cy="110" r="4.5" fill="#d8bfd8"/>
+  
+  <path d="M180 80 Q175 110 178 140 Q180 170 176 200" stroke="#c8a2d8" stroke-width="1.5" fill="none"/>
+  <circle cx="178" cy="100" r="5" fill="#d8bfd8"/>
+  <circle cx="176" cy="115" r="4" fill="#e8d5e8"/>
+  <circle cx="179" cy="130" r="5" fill="#d8bfd8"/>
+  <circle cx="177" cy="145" r="4.5" fill="#e8d5e8"/>
+  <circle cx="178" cy="160" r="4" fill="#d8bfd8"/>
+  <circle cx="176" cy="175" r="3.5" fill="#e8d5e8"/>
+  
+  <path d="M260 20 Q255 50 258 80 Q260 110 256 140" stroke="#c8a2d8" stroke-width="1.5" fill="none"/>
+  <circle cx="258" cy="40" r="4.5" fill="#d8bfd8"/>
+  <circle cx="256" cy="55" r="5" fill="#e8d5e8"/>
+  <circle cx="259" cy="70" r="4" fill="#d8bfd8"/>
+  <circle cx="257" cy="85" r="5" fill="#e8d5e8"/>
+  <circle cx="258" cy="100" r="4.5" fill="#d8bfd8"/>
+  
+  <path d="M60 0 Q55 30 58 60 Q60 90 56 120" stroke="#c8a2d8" stroke-width="1.2" fill="none"/>
+  <circle cx="58" cy="20" r="4" fill="#d8bfd8"/>
+  <circle cx="56" cy="35" r="4.5" fill="#e8d5e8"/>
+  <circle cx="59" cy="50" r="4" fill="#d8bfd8"/>
+  <circle cx="57" cy="65" r="3.5" fill="#e8d5e8"/>
+  
+  <!-- 绿叶 -->
+  <ellipse cx="90" cy="25" rx="12" ry="6" fill="#6b8e6b" transform="rotate(-20 90 25)"/>
+  <ellipse cx="70" cy="35" rx="10" ry="5" fill="#7a9b7a" transform="rotate(15 70 35)"/>
+  <ellipse cx="190" cy="75" rx="11" ry="5.5" fill="#6b8e6b" transform="rotate(-25 190 75)"/>
+  <ellipse cx="165" cy="85" rx="10" ry="5" fill="#7a9b7a" transform="rotate(10 165 85)"/>
+  <ellipse cx="270" cy="15" rx="11" ry="5" fill="#6b8e6b" transform="rotate(-15 270 15)"/>
+  <ellipse cx="245" cy="30" rx="10" ry="5.5" fill="#7a9b7a" transform="rotate(20 245 30)"/>
+  <ellipse cx="55" cy="10" rx="10" ry="5" fill="#6b8e6b" transform="rotate(25 55 10)"/>
+  <ellipse cx="40" cy="25" rx="9" ry="4.5" fill="#7a9b7a" transform="rotate(-10 40 25)"/>
+  
+  <circle cx="120" cy="180" r="3" fill="#e8d5e8"/>
+  <circle cx="230" cy="200" r="3.5" fill="#d8bfd8"/>
+  <circle cx="40" cy="220" r="3" fill="#e8d5e8"/>
+  <circle cx="280" cy="160" r="2.5" fill="#d8bfd8"/>
+</svg>

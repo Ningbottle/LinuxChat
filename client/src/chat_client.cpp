@@ -1,0 +1,221 @@
+// chat_client.cpp — ChatClient implementation
+//
+// Frame format (mirrors server protocol.cpp):
+//   [4-byte big-endian length][JSON UTF-8 body]
+
+#include "chat_client.h"
+#include <QtEndian>  // qToBigEndian, qFromBigEndian
+#include <QTimer>
+#include <cstring>
+
+// ── Constructor ────────────────────────────────────────────────────
+
+ChatClient::ChatClient(QObject* parent)
+    : QObject(parent)
+{
+    socket_ = new QTcpSocket(this);
+
+    connect(socket_, &QTcpSocket::connected,
+            this, &ChatClient::on_socket_connected);
+    connect(socket_, &QTcpSocket::disconnected,
+            this, &ChatClient::on_socket_disconnected);
+    connect(socket_, &QTcpSocket::readyRead,
+            this, &ChatClient::on_ready_read);
+    connect(socket_, &QAbstractSocket::errorOccurred,
+            this, &ChatClient::on_socket_error);
+}
+
+// ── Connection Management ──────────────────────────────────────────
+
+void ChatClient::connect_to_server(const QString& host, quint16 port) {
+    recv_buf_.clear();
+    socket_->connectToHost(host, port);
+}
+
+void ChatClient::disconnect_from_server() {
+    if (socket_->state() != QAbstractSocket::UnconnectedState) {
+        socket_->disconnectFromHost();
+    }
+}
+
+bool ChatClient::is_connected() const {
+    return socket_->state() == QAbstractSocket::ConnectedState;
+}
+
+// ── Send Protocol Messages ─────────────────────────────────────────
+
+void ChatClient::send_register(const QString& username, const QString& password) {
+    QJsonObject msg;
+    msg["type"]    = QStringLiteral("REGISTER");
+    msg["from"]    = username;
+    msg["content"] = password;
+    send_json(msg);
+}
+
+void ChatClient::send_login(const QString& username, const QString& password) {
+    QJsonObject msg;
+    msg["type"]    = QStringLiteral("LOGIN");
+    msg["from"]    = username;
+    msg["content"] = password;
+    send_json(msg);
+}
+
+void ChatClient::send_logout() {
+    QJsonObject msg;
+    msg["type"] = QStringLiteral("LOGOUT");
+    send_json(msg);
+}
+
+void ChatClient::send_broadcast(const QString& content) {
+    QJsonObject msg;
+    msg["type"]    = QStringLiteral("BROADCAST");
+    msg["content"] = content;
+    send_json(msg);
+}
+
+void ChatClient::send_private(const QString& to, const QString& content) {
+    QJsonObject msg;
+    msg["type"]    = QStringLiteral("PRIVATE");
+    msg["to"]      = to;
+    msg["content"] = content;
+    send_json(msg);
+}
+
+void ChatClient::send_history_req(const QString& target) {
+    QJsonObject msg;
+    msg["type"] = QStringLiteral("HISTORY_REQ");
+    msg["to"]   = target;
+    send_json(msg);
+}
+
+// ── Private: Frame I/O ─────────────────────────────────────────────
+
+bool ChatClient::send_json(const QJsonObject& msg) {
+    if (!is_connected()) return false;
+
+    QJsonDocument doc(msg);
+    QByteArray body = doc.toJson(QJsonDocument::Compact);
+
+    // 4-byte big-endian length prefix
+    quint32 body_len = static_cast<quint32>(body.size());
+    quint32 net_len  = qToBigEndian(body_len);
+
+    QByteArray frame;
+    frame.reserve(4 + body.size());
+    frame.append(reinterpret_cast<const char*>(&net_len), 4);
+    frame.append(body);
+
+    qint64 written = socket_->write(frame);
+    return written == frame.size();
+}
+
+// ── Private Slots ──────────────────────────────────────────────────
+
+void ChatClient::on_socket_connected() {
+    emit connected();
+}
+
+void ChatClient::on_socket_disconnected() {
+    recv_buf_.clear();
+    emit disconnected();
+}
+
+void ChatClient::on_socket_error(QAbstractSocket::SocketError error) {
+    Q_UNUSED(error)
+    emit connection_error(socket_->errorString());
+}
+
+void ChatClient::on_ready_read() {
+    // Append all available data to receive buffer
+    recv_buf_.append(socket_->readAll());
+    process_frames();
+}
+
+void ChatClient::process_frames() {
+    // Extract all complete frames from the buffer
+    while (recv_buf_.size() >= 4) {
+        // Read 4-byte big-endian length
+        quint32 net_len;
+        std::memcpy(&net_len, recv_buf_.constData(), 4);
+        quint32 body_len = qFromBigEndian(net_len);
+
+        // Guard against oversized messages (16 MB limit, mirrors server)
+        if (body_len > 16 * 1024 * 1024) {
+            qWarning("[ChatClient] Oversized frame (%u bytes), disconnecting.", body_len);
+            recv_buf_.clear();
+            socket_->disconnectFromHost();
+            return;
+        }
+
+        // Check if we have the full body
+        if (static_cast<quint32>(recv_buf_.size()) < 4 + body_len) {
+            break; // Incomplete frame — wait for more data
+        }
+
+        // Extract the JSON body
+        QByteArray json_data = recv_buf_.mid(4, static_cast<int>(body_len));
+        recv_buf_.remove(0, 4 + static_cast<int>(body_len));
+
+        // Parse JSON
+        QJsonParseError parse_error;
+        QJsonDocument doc = QJsonDocument::fromJson(json_data, &parse_error);
+        if (parse_error.error != QJsonParseError::NoError) {
+            qWarning("[ChatClient] JSON parse error: %s",
+                     qUtf8Printable(parse_error.errorString()));
+            continue; // Skip malformed message
+        }
+
+        if (!doc.isObject()) {
+            qWarning("[ChatClient] Received non-object JSON, skipping.");
+            continue;
+        }
+
+        dispatch_message(doc.object());
+    }
+}
+
+void ChatClient::dispatch_message(const QJsonObject& msg) {
+    QString type = msg["type"].toString();
+
+    if (type == "LOGIN_OK") {
+        emit login_ok(msg["from"].toString());
+
+    } else if (type == "ERROR") {
+        emit error_received(
+            msg["code"].toString(),
+            msg["content"].toString()
+        );
+
+    } else if (type == "BROADCAST") {
+        emit broadcast_received(
+            msg["from"].toString(),
+            msg["content"].toString(),
+            static_cast<qint64>(msg["timestamp"].toDouble())
+        );
+
+    } else if (type == "PRIVATE") {
+        emit private_received(
+            msg["from"].toString(),
+            msg["to"].toString(),
+            msg["content"].toString(),
+            static_cast<qint64>(msg["timestamp"].toDouble())
+        );
+
+    } else if (type == "USER_LIST") {
+        QStringList users;
+        const QJsonArray arr = msg["data"].toArray();
+        for (const auto& v : arr) {
+            users.append(v.toString());
+        }
+        emit user_list_updated(users);
+
+    } else if (type == "HISTORY_RESP") {
+        emit history_received(
+            msg["to"].toString(),
+            msg["data"].toArray()
+        );
+
+    } else if (type == "NOTIFY") {
+        emit notify_received(msg["content"].toString());
+    }
+}

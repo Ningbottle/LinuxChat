@@ -1,0 +1,326 @@
+// epoll_server.cpp — epoll-based TCP server implementation
+//
+// Architecture:
+//   Main thread: epoll_wait() loop — accepts connections and reads data
+//   Worker threads (ThreadPool): parse JSON and call MessageHandler
+//
+// Uses level-triggered epoll for simplicity (sufficient for course project scale).
+
+#include "epoll_server.h"
+#include "protocol.h"
+
+#include <sys/socket.h>
+#include <sys/epoll.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <signal.h>
+
+#include <cstring>
+#include <iostream>
+#include <algorithm>
+
+// ── Constructor / Destructor ───────────────────────────────────────
+
+EpollServer::EpollServer(int port, size_t num_workers)
+    : port_(port)
+    , pool_(num_workers)
+{
+    // Create epoll instance
+    epoll_fd_ = epoll_create1(EPOLL_CLOEXEC);
+    if (epoll_fd_ < 0) {
+        throw std::runtime_error("EpollServer: epoll_create1 failed: " +
+                                 std::string(strerror(errno)));
+    }
+
+    // Create wakeup pipe for stop()
+    if (pipe2(wakeup_pipe_, O_NONBLOCK | O_CLOEXEC) < 0) {
+        close(epoll_fd_);
+        epoll_fd_ = -1;
+        throw std::runtime_error("EpollServer: pipe2 failed: " +
+                                 std::string(strerror(errno)));
+    }
+}
+
+EpollServer::~EpollServer() {
+    stop();
+
+    // Close all client connections
+    {
+        std::lock_guard<std::mutex> lock(sessions_mutex_);
+        for (auto& [fd, session] : sessions_) {
+            ::close(fd);
+        }
+        sessions_.clear();
+    }
+
+    if (epoll_fd_ >= 0)  close(epoll_fd_);
+    if (wakeup_pipe_[0] >= 0) close(wakeup_pipe_[0]);
+    if (wakeup_pipe_[1] >= 0) close(wakeup_pipe_[1]);
+    if (listen_fd_ >= 0) close(listen_fd_);
+}
+
+// ── Handler Registration ───────────────────────────────────────────
+
+void EpollServer::set_message_handler(MessageHandler handler) {
+    on_message_ = std::move(handler);
+}
+
+void EpollServer::set_disconnect_handler(DisconnectHandler handler) {
+    on_disconnect_ = std::move(handler);
+}
+
+// ── Event Loop ─────────────────────────────────────────────────────
+
+void EpollServer::run() {
+    // Ignore SIGPIPE (broken pipe when client disconnects)
+    signal(SIGPIPE, SIG_IGN);
+
+    // Create listening socket
+    listen_fd_ = socket(AF_INET, SOCK_STREAM, 0);
+    if (listen_fd_ < 0) {
+        throw std::runtime_error("EpollServer: socket failed: " +
+                                 std::string(strerror(errno)));
+    }
+
+    // Allow address reuse
+    int opt = 1;
+    setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    // Bind
+    struct sockaddr_in addr{};
+    addr.sin_family      = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port        = htons(static_cast<uint16_t>(port_));
+
+    if (bind(listen_fd_, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
+        close(listen_fd_);
+        throw std::runtime_error("EpollServer: bind failed on port " +
+                                 std::to_string(port_) + ": " + strerror(errno));
+    }
+
+    // Listen
+    if (listen(listen_fd_, SOMAXCONN) < 0) {
+        close(listen_fd_);
+        throw std::runtime_error("EpollServer: listen failed: " +
+                                 std::string(strerror(errno)));
+    }
+
+    // Set listening fd to non-blocking
+    set_nonblocking(listen_fd_);
+
+    // Register listening fd with epoll
+    struct epoll_event ev{};
+    ev.events = EPOLLIN;
+    ev.data.fd = listen_fd_;
+    epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, listen_fd_, &ev);
+
+    // Register wakeup pipe read end
+    ev.events = EPOLLIN;
+    ev.data.fd = wakeup_pipe_[0];
+    epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, wakeup_pipe_[0], &ev);
+
+    std::cout << "[Server] Listening on port " << port_ << "\n";
+
+    running_ = true;
+
+    // Main event loop
+    constexpr int MAX_EVENTS = 64;
+    struct epoll_event events[MAX_EVENTS];
+
+    while (running_) {
+        int nfds = epoll_wait(epoll_fd_, events, MAX_EVENTS, -1);
+        if (nfds < 0) {
+            if (errno == EINTR) continue; // Interrupted by signal, retry
+            std::cerr << "[Server] epoll_wait error: " << strerror(errno) << "\n";
+            break;
+        }
+
+        for (int i = 0; i < nfds; ++i) {
+            int fd = events[i].data.fd;
+
+            if (fd == wakeup_pipe_[0]) {
+                // Stop signal received
+                running_ = false;
+                break;
+            } else if (fd == listen_fd_) {
+                handle_new_connection();
+            } else {
+                handle_client_event(fd);
+            }
+        }
+    }
+
+    std::cout << "[Server] Event loop exited.\n";
+}
+
+void EpollServer::stop() {
+    if (!running_) return;
+    running_ = false;
+
+    // Wake up epoll_wait by writing to the pipe
+    if (wakeup_pipe_[1] >= 0) {
+        char c = 'x';
+        (void)::write(wakeup_pipe_[1], &c, 1);
+    }
+}
+
+// ── Connection Management ──────────────────────────────────────────
+
+void EpollServer::handle_new_connection() {
+    struct sockaddr_in client_addr{};
+    socklen_t addr_len = sizeof(client_addr);
+
+    int client_fd = accept4(listen_fd_,
+                            reinterpret_cast<struct sockaddr*>(&client_addr),
+                            &addr_len,
+                            SOCK_NONBLOCK | SOCK_CLOEXEC);
+    if (client_fd < 0) {
+        if (errno != EAGAIN && errno != EWOULDBLOCK) {
+            std::cerr << "[Server] accept4 error: " << strerror(errno) << "\n";
+        }
+        return;
+    }
+
+    // Create session
+    auto session = std::make_unique<ClientSession>(client_fd);
+
+    // Register with epoll
+    struct epoll_event ev{};
+    ev.events  = EPOLLIN | EPOLLRDHUP;
+    ev.data.fd = client_fd;
+    if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, client_fd, &ev) < 0) {
+        std::cerr << "[Server] epoll_ctl ADD for fd=" << client_fd
+                  << " failed: " << strerror(errno) << "\n";
+        close(client_fd);
+        return;
+    }
+
+    // Store session
+    {
+        std::lock_guard<std::mutex> lock(sessions_mutex_);
+        sessions_[client_fd] = std::move(session);
+    }
+
+    char ip_str[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, sizeof(ip_str));
+    std::cout << "[Server] New connection from " << ip_str
+              << ":" << ntohs(client_addr.sin_port)
+              << " (fd=" << client_fd << ")\n";
+}
+
+void EpollServer::handle_client_event(int fd) {
+    ClientSession* session = nullptr;
+
+    {
+        std::lock_guard<std::mutex> lock(sessions_mutex_);
+        auto it = sessions_.find(fd);
+        if (it == sessions_.end()) return;
+        session = it->second.get();
+    }
+
+    // Read data and extract complete messages
+    auto msgs = Protocol::recv_msgs(*session);
+
+    if (!msgs.has_value()) {
+        // Connection closed or error
+        remove_client(fd);
+        return;
+    }
+
+    // Dispatch each message to worker thread
+    for (auto& msg : *msgs) {
+        if (on_message_) {
+            pool_.enqueue([this, fd, msg]() {
+                // IMPORTANT: Look up session WITHOUT holding sessions_mutex_
+                // to avoid deadlock. The handler (on_message_) may call back
+                // into broadcast()/find_fd()/send_to_fd() which also lock
+                // sessions_mutex_.
+                ClientSession* sess = nullptr;
+                {
+                    std::lock_guard<std::mutex> lock(sessions_mutex_);
+                    auto it = sessions_.find(fd);
+                    if (it == sessions_.end()) return;
+                    sess = it->second.get();
+                }
+
+                try {
+                    on_message_(*sess, msg);
+                } catch (const std::exception& e) {
+                    std::cerr << "[Server] Handler exception for fd=" << fd
+                              << ": " << e.what() << "\n";
+                }
+            });
+        }
+    }
+}
+
+void EpollServer::remove_client(int fd) {
+    // Remove from epoll
+    epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
+
+    std::unique_ptr<ClientSession> removed_session;
+
+    {
+        std::lock_guard<std::mutex> lock(sessions_mutex_);
+        auto it = sessions_.find(fd);
+        if (it != sessions_.end()) {
+            removed_session = std::move(it->second);
+            sessions_.erase(it);
+        }
+    }
+
+    // Call disconnect handler before closing fd
+    if (removed_session && on_disconnect_) {
+        try {
+            on_disconnect_(*removed_session);
+        } catch (const std::exception& e) {
+            std::cerr << "[Server] Disconnect handler exception: " << e.what() << "\n";
+        }
+    }
+
+    if (removed_session) {
+        std::cout << "[Server] Client disconnected: "
+                  << (removed_session->is_authenticated() ? removed_session->username : "(unauth)")
+                  << " (fd=" << fd << ")\n";
+    }
+
+    close(fd);
+}
+
+void EpollServer::set_nonblocking(int fd) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags >= 0) {
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    }
+}
+
+// ── Messaging API ──────────────────────────────────────────────────
+
+void EpollServer::broadcast(const nlohmann::json& msg, const std::string& exclude_username) {
+    std::lock_guard<std::mutex> lock(sessions_mutex_);
+    for (auto& [fd, session] : sessions_) {
+        if (!session->is_authenticated()) continue;
+        if (!exclude_username.empty() && session->username == exclude_username) continue;
+
+        Protocol::send_msg(fd, msg);
+    }
+}
+
+bool EpollServer::send_to_fd(int fd, const nlohmann::json& msg) {
+    std::lock_guard<std::mutex> lock(sessions_mutex_);
+    auto it = sessions_.find(fd);
+    if (it == sessions_.end()) return false;
+    return Protocol::send_msg(fd, msg);
+}
+
+int EpollServer::find_fd(const std::string& username) const {
+    std::lock_guard<std::mutex> lock(sessions_mutex_);
+    for (const auto& [fd, session] : sessions_) {
+        if (session->username == username) {
+            return fd;
+        }
+    }
+    return -1;
+}
