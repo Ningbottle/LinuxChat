@@ -82,6 +82,15 @@ static void broadcast_user_list() {
     g_server->broadcast(msg);
 }
 
+/// Safely send a message to a specific fd while holding sessions_mutex_.
+/// Prevents the race where the main thread closes the fd between
+/// a worker thread's find_fd() and Protocol::send_msg().
+static bool safe_send(int fd, const json& msg) {
+    // Delegate to server's send_to_fd which holds sessions_mutex_
+    // and re-checks that the fd is still valid before sending.
+    return g_server->send_to_fd(fd, msg);
+}
+
 /// Push recent history to a newly logged-in user
 static void push_history(int fd, const std::string& username) {
     // Push broadcast (room) history
@@ -91,7 +100,10 @@ static void push_history(int fd, const std::string& username) {
         {"to",   "__room__"},
         {"data", room_history}
     };
-    Protocol::send_msg(fd, hist_msg);
+    // Use safe_send instead of Protocol::send_msg to prevent
+    // use-after-close: the client might disconnect between LOGIN_OK
+    // and this call, and the main thread could close the fd.
+    safe_send(fd, hist_msg);
 }
 
 // ── Message Handlers ───────────────────────────────────────────────
@@ -280,7 +292,7 @@ static void handle_history_req(ClientSession& session, const json& msg) {
         {"to",   to},
         {"data", history}
     };
-    Protocol::send_msg(session.fd, resp);
+    safe_send(session.fd, resp);
 }
 
 // ── Main Message Dispatcher ────────────────────────────────────────

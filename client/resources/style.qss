@@ -8,10 +8,10 @@
 /* ── Canvas (Main Background) ──────────────────────────────── */
 QMainWindow,
 QWidget#centralWidget {
-    background-color: #F5F5F7;
-    font-family: "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
-    font-size: 14px;
-    color: #1C1C1E;
+    background-color: #faf9f7;
+    font-family: "LXGW WenKai", "Microsoft YaHei UI", system-ui, sans-serif;
+    font-size: 15px;
+    color: #1c1917;
 }
 
 /* ── Dialog (Login/Register) ────────────────────────────────── */
@@ -22,16 +22,16 @@ QDialog {
 
 /* ── Sidebar Panel (applied via QFrame#sidebar) ─────────────── */
 QFrame#sidebar {
-    background-color: #FFFFFF;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 14px;
+    background-color: #ffffff;
+    border: 1px solid #e7e5e4;
+    border-radius: 2px;
 }
 
 /* ── Section Headers in Sidebar ─────────────────────────────── */
 QLabel#sectionHeader {
     font-size: 11px;
     font-weight: 600;
-    color: #AEAEB2;
+    color: #a8a29e;
     padding: 4px 12px 2px 12px;
     letter-spacing: 0.5px;
 }
@@ -40,7 +40,7 @@ QLabel#sectionHeader {
 QLabel#currentUser {
     font-size: 14px;
     font-weight: 600;
-    color: #1C1C1E;
+    color: #1c1917;
     padding: 0px 4px;
 }
 
@@ -58,9 +58,9 @@ QListWidget#userList::item,
 QListWidget#friendList::item,
 QListWidget#blackList::item {
     height: 36px;
-    padding-left: 12px;
-    border-radius: 8px;
-    color: #1C1C1E;
+    padding: 10px 12px;
+    border-radius: 2px;
+    color: #1c1917;
     font-size: 13px;
     font-weight: 400;
 }
@@ -68,19 +68,20 @@ QListWidget#blackList::item {
 QListWidget#userList::item:hover,
 QListWidget#friendList::item:hover,
 QListWidget#blackList::item:hover {
-    background-color: rgba(0, 0, 0, 0.04);
+    background-color: #f5f5f4;
 }
 
 QListWidget#userList::item:selected,
 QListWidget#friendList::item:selected {
-    background-color: rgba(10, 132, 255, 0.10);
-    color: #0A84FF;
+    background-color: #f5f5f4;
+    border-left: 2px solid #44403c;
+    color: #1c1917;
     font-weight: 500;
 }
 
 /* ── Online Status Dot ───────────────────────────────────────── */
 QLabel#onlineDot {
-    background-color: #30D158;
+    background-color: #10b981;
     border-radius: 4px;
     min-width: 8px;
     max-width: 8px;
@@ -89,7 +90,7 @@ QLabel#onlineDot {
 }
 
 QLabel#offlineDot {
-    background-color: #AEAEB2;
+    background-color: #a8a29e;
     border-radius: 4px;
     min-width: 8px;
     max-width: 8px;
@@ -99,107 +100,109 @@ QLabel#offlineDot {
 
 /* ── Buttons: Primary ────────────────────────────────────────── */
 QPushButton#primaryBtn {
-    background-color: #0A84FF;
-    color: #FFFFFF;
-    border: none;
-    border-radius: 10px;
-    padding: 8px 20px;
-    font-size: 14px;
+    background-color: #44403c;
+    color: #ffffff;
+    border: 1px solid #44403c;
+    border-radius: 2px;
+    padding: 10px;
+    font-size: 13px;
     font-weight: 500;
     min-height: 34px;
 }
 
 QPushButton#primaryBtn:hover {
-    background-color: #0071E3;
+    background-color: #57534e;
+    border-color: #57534e;
 }
 
 QPushButton#primaryBtn:pressed {
-    background-color: #005BBB;
+    background-color: #44403c;
 }
 
 QPushButton#primaryBtn:disabled {
-    background-color: rgba(10, 132, 255, 0.30);
+    background-color: #a8a29e;
+    border-color: #a8a29e;
     color: rgba(255, 255, 255, 0.60);
 }
 
 /* ── Buttons: Secondary ──────────────────────────────────────── */
 QPushButton#secondaryBtn {
-    background-color: rgba(0, 0, 0, 0.05);
-    color: #1C1C1E;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 10px;
-    padding: 8px 20px;
-    font-size: 14px;
+    background-color: transparent;
+    color: #1c1917;
+    border: 1px solid #d6d3d1;
+    border-radius: 2px;
+    padding: 10px;
+    font-size: 13px;
     font-weight: 400;
     min-height: 34px;
 }
 
 QPushButton#secondaryBtn:hover {
-    background-color: rgba(0, 0, 0, 0.08);
-    border-color: rgba(0, 0, 0, 0.12);
+    background-color: #f5f5f4;
+    border-color: #78776c;
 }
 
 QPushButton#secondaryBtn:pressed {
-    background-color: rgba(0, 0, 0, 0.12);
+    background-color: #e7e5e4;
 }
 
 /* ── Buttons: Danger ─────────────────────────────────────────── */
 QPushButton#dangerBtn {
     background-color: transparent;
-    color: #FF3B30;
-    border: 1px solid rgba(255, 59, 48, 0.40);
-    border-radius: 10px;
-    padding: 6px 16px;
+    color: #ef4444;
+    border: 1px solid #e7e5e4;
+    border-radius: 2px;
+    padding: 6px 8px;
     font-size: 13px;
     font-weight: 400;
     min-height: 30px;
 }
 
 QPushButton#dangerBtn:hover {
-    background-color: rgba(255, 59, 48, 0.06);
-    border-color: rgba(255, 59, 48, 0.60);
+    background-color: #fef2f2;
+    border-color: #ef4444;
 }
 
 QPushButton#dangerBtn:pressed {
-    background-color: rgba(255, 59, 48, 0.12);
+    background-color: #fee2e2;
 }
 
 /* ── Input Fields ────────────────────────────────────────────── */
 QLineEdit,
 QTextEdit#inputField {
-    background-color: #F2F2F4;
-    border: 1.5px solid rgba(0, 0, 0, 0.08);
-    border-radius: 10px;
-    color: #1C1C1E;
-    padding: 8px 12px;
-    font-size: 14px;
-    selection-background-color: rgba(10, 132, 255, 0.25);
-    selection-color: #1C1C1E;
+    background-color: #ffffff;
+    border: 1px solid #d6d3d1;
+    border-radius: 2px;
+    color: #1c1917;
+    padding: 10px 12px;
+    font-size: 15px;
+    selection-background-color: rgba(68, 64, 60, 0.25);
+    selection-color: #1c1917;
 }
 
 QLineEdit:focus,
 QTextEdit#inputField:focus {
-    background-color: #FFFFFF;
-    border: 1.5px solid rgba(10, 132, 255, 0.50);
+    background-color: #ffffff;
+    border: 1px solid #78776c;
     outline: none;
 }
 
 QLineEdit:disabled {
-    background-color: rgba(0, 0, 0, 0.04);
-    color: #AEAEB2;
+    background-color: #f5f5f4;
+    color: #a8a29e;
 }
 
 /* ── Tab Widget ──────────────────────────────────────────────── */
 QTabWidget#chatTabs::pane {
-    background-color: #FFFFFF;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 14px;
+    background-color: #ffffff;
+    border: 1px solid #e7e5e4;
+    border-radius: 2px;
     top: -1px;
 }
 
 QTabWidget#chatTabs QTabBar::tab {
     background-color: transparent;
-    color: #6E6E73;
+    color: #78776c;
     padding: 8px 16px;
     font-size: 13px;
     font-weight: 500;
@@ -210,14 +213,14 @@ QTabWidget#chatTabs QTabBar::tab {
 }
 
 QTabWidget#chatTabs QTabBar::tab:selected {
-    color: #1C1C1E;
-    border-bottom: 2px solid #0A84FF;
+    color: #1c1917;
+    border-bottom: 2px solid #44403c;
 }
 
 QTabWidget#chatTabs QTabBar::tab:hover:!selected {
-    color: #1C1C1E;
-    background-color: rgba(0, 0, 0, 0.03);
-    border-radius: 8px 8px 0 0;
+    color: #1c1917;
+    background-color: #f5f5f4;
+    border-radius: 2px 2px 0 0;
 }
 
 /* ── Message Area ────────────────────────────────────────────── */
@@ -328,34 +331,34 @@ QMenu::separator {
 /* ── Message Bubble Containers (used by delegate) ────────────── */
 /* These serve as reference values for the C++ delegate painter */
 QWidget#bubbleOther {
-    background-color: #FFFFFF;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: 14px;
+    background-color: #ffffff;
+    border: 1px solid #e7e5e4;
+    border-radius: 2px;
 }
 
 QWidget#bubbleSelf {
-    background-color: rgba(10, 132, 255, 0.08);
-    border: 1px solid rgba(10, 132, 255, 0.15);
-    border-radius: 14px;
+    background-color: #44403c;
+    border: 1px solid #44403c;
+    border-radius: 2px;
 }
 
 QLabel#msgUsername {
     font-size: 12px;
     font-weight: 500;
-    color: #6E6E73;
+    color: #78776c;
 }
 
 QLabel#msgContent {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 400;
-    color: #1C1C1E;
+    color: #1c1917;
     line-height: 1.6;
 }
 
 QLabel#msgTimestamp {
     font-size: 11px;
     font-weight: 400;
-    color: #AEAEB2;
+    color: #a8a29e;
     font-family: "Cascadia Code", "Consolas", monospace;
 }
 
@@ -363,9 +366,9 @@ QLabel#msgTimestamp {
 QLabel#systemNotify {
     font-size: 12px;
     font-weight: 400;
-    color: #AEAEB2;
-    background-color: rgba(0, 0, 0, 0.04);
-    border-radius: 6px;
+    color: #a8a29e;
+    background-color: #f5f5f4;
+    border-radius: 2px;
     padding: 2px 12px;
 }
 

@@ -12,6 +12,8 @@
 #include <QCloseEvent>
 #include <QPainter>
 #include <QSvgRenderer>
+#include <QTimer>
+#include <QCoreApplication>
 
 // -- Constructor -------------------------------------------------------
 
@@ -240,7 +242,7 @@ void MainWindow::on_disconnected() {
     online_dot_->style()->polish(online_dot_);
 
     status_label_->setText(QStringLiteral("● 已断开"));
-    status_label_->setStyleSheet(QStringLiteral("color: #aeaeb2;"));
+    status_label_->setStyleSheet(QStringLiteral("color: #a8a29e;"));
 
     room_view_->append_system_message(QStringLiteral("与服务器的连接已断开"));
 }
@@ -290,7 +292,12 @@ void MainWindow::on_tab_send_requested() {
 
 void MainWindow::on_disconnect_clicked() {
     client_->send_logout();
-    client_->disconnect_from_server();
+    // Give server time to process LOGOUT before closing TCP connection.
+    // Without this, disconnect_from_server() kills the socket before
+    // the LOGOUT frame has been flushed to the network.
+    QTimer::singleShot(200, this, [this]() {
+        client_->disconnect_from_server();
+    });
 }
 
 // -- Helpers ------------------------------------------------------------
@@ -320,6 +327,9 @@ ChatView* MainWindow::chat_view_at(int tab_index) const {
 
 void MainWindow::closeEvent(QCloseEvent* event) {
     client_->send_logout();
+    // Brief flush so the LOGOUT frame actually leaves the socket
+    // before the process exits and tears down the TCP stack.
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 150);
     client_->disconnect_from_server();
     event->accept();
 }

@@ -28,6 +28,33 @@ LoginDialog::LoginDialog(ChatClient* client, QWidget* parent)
             this, &LoginDialog::on_error_received);
     connect(client_, &ChatClient::connection_error,
             this, &LoginDialog::on_connection_error);
+    connect(client_, &ChatClient::disconnected, this, [this]() {
+        // If dialog is still visible and user hasn't logged in yet,
+        // show a friendly error message
+        if (isVisible()) {
+            connect_timer_->stop();
+            set_loading(false);
+            status_label_->setText(QStringLiteral("服务器已断开连接"));
+            login_btn_->setEnabled(false);
+            register_btn_->setEnabled(false);
+        }
+    });
+
+    // Connection timeout timer — prevents the UI from hanging
+    // indefinitely when the server accepts the TCP handshake but
+    // never responds (or the connection is silently dropped).
+    connect_timer_ = new QTimer(this);
+    connect_timer_->setSingleShot(true);
+    connect_timer_->setInterval(10000);  // 10 seconds
+    connect(connect_timer_, &QTimer::timeout, this, [this]() {
+        if (client_->is_connected()) {
+            client_->disconnect_from_server();
+        }
+        status_label_->setText(QStringLiteral("连接超时，请检查服务器地址和端口"));
+        set_loading(false);
+        login_btn_->setEnabled(false);
+        register_btn_->setEnabled(false);
+    });
 }
 
 // ── Accessors ──────────────────────────────────────────────────────
@@ -208,6 +235,7 @@ void LoginDialog::on_connect_clicked() {
 
     status_label_->setText(QStringLiteral("正在连接..."));
     set_loading(true);
+    connect_timer_->start();
     client_->connect_to_server(host, port);
 }
 
@@ -240,6 +268,7 @@ void LoginDialog::on_register_clicked() {
 }
 
 void LoginDialog::on_login_ok(const QString& /*username*/) {
+    connect_timer_->stop();
     set_loading(false);
     accept(); // Close dialog, proceed to main window
 }
@@ -250,6 +279,7 @@ void LoginDialog::on_error_received(const QString& code, const QString& content)
 }
 
 void LoginDialog::on_connected() {
+    connect_timer_->stop();
     set_loading(false);
     status_label_->setText(QStringLiteral("已连接到服务器"));
     login_btn_->setEnabled(true);
@@ -257,6 +287,7 @@ void LoginDialog::on_connected() {
 }
 
 void LoginDialog::on_connection_error(const QString& error) {
+    connect_timer_->stop();
     set_loading(false);
     status_label_->setText(QStringLiteral("连接失败: %1").arg(error));
     login_btn_->setEnabled(false);

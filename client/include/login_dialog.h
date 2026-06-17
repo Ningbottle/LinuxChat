@@ -11,6 +11,7 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QPaintEvent>
+#include <QTimer>
 
 class QPainter;
 class ChatClient;
@@ -62,4 +63,7 @@ private:
 
     // Status
     QLabel*      status_label_  = nullptr;
+
+    // Connection timeout (prevents UI from hanging indefinitely)
+    QTimer*      connect_timer_ = nullptr;
 };
