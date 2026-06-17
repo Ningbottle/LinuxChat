@@ -228,6 +228,7 @@ void EpollServer::handle_client_event(int fd) {
 
     if (!msgs.has_value()) {
         // Connection closed or error (incl. oversized frame)
+        std::cout << "[Server] fd=" << fd << " recv_msgs returned nullopt -> removing client" << std::endl;
         remove_client(fd);
         return;
     }
