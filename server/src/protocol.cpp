@@ -69,12 +69,14 @@ std::optional<std::vector<nlohmann::json>> recv_msgs(ClientSession& session) {
         }
         if (n == 0) {
             // Connection closed by peer
+            std::cout << "[Protocol] fd=" << session.fd << " recv n=0 (peer closed from client side)" << std::endl;
             return std::nullopt;
         }
         // n < 0
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             break;  // no more data right now; parse what we have
         }
+        std::cout << "[Protocol] fd=" << session.fd << " recv error: " << strerror(errno) << std::endl;
         return std::nullopt; // real error
     }
 
