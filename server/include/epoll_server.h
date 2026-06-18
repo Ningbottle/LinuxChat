@@ -61,9 +61,12 @@ private:
     void remove_client(int fd);
     void set_nonblocking(int fd);
 
+    static constexpr int HEARTBEAT_INTERVAL_SEC = 30;  ///< PING broadcast interval
+
     int         port_;
     int         listen_fd_ = -1;
     int         epoll_fd_  = -1;
+    int         heartbeat_fd_ = -1;  ///< timerfd for heartbeat PING
     int         wakeup_pipe_[2] = {-1, -1}; ///< pipe for stop() wakeup
     bool        running_ = false;
 
@@ -71,9 +74,10 @@ private:
 
     ThreadPool  pool_;
 
-    /// fd → ClientSession
+    /// fd -> ClientSession (shared_ptr so worker lambdas can safely
+    /// hold a reference even if remove_client() runs concurrently)
     mutable std::mutex sessions_mutex_;
-    std::unordered_map<int, std::unique_ptr<ClientSession>> sessions_;
+    std::unordered_map<int, std::shared_ptr<ClientSession>> sessions_;
 
     MessageHandler    on_message_;
     DisconnectHandler on_disconnect_;

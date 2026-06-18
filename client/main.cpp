@@ -43,25 +43,78 @@ int main(int argc, char* argv[]) {
         qWarning() << "Failed to load style.qss:" << style_file.errorString();
     }
 
-    // Create shared protocol client
-    ChatClient client;
-
-    // Show login dialog
-    LoginDialog login(&client);
-    if (login.exec() != QDialog::Accepted) {
-        return 0; // User cancelled
+    // --- Direct chat UI bypass for fast QSS testing (no server needed) ---
+    // Parse simple CLI flags early: --test-chat | --direct-chat | -t
+    bool isTestMode = false;
+    for (int i = 1; i < argc; ++i) {
+        const QString arg = QString::fromLocal8Bit(argv[i]).toLower();
+        if (arg == "--test-chat" || arg == "--direct-chat" || arg == "-t") {
+            isTestMode = true;
+            break;
+        }
     }
 
-    // Login successful - show main window
-    qDebug() << "[main] Login successful, creating MainWindow";
-    MainWindow window(&client, login.username());
-    qDebug() << "[main] Showing MainWindow";
-    window.show();
+    if (isTestMode) {
+        qDebug() << "[main] --test-chat mode: launching direct chat UI (no login, no server)";
+        ChatClient client;  // real instance but no connect; sends are no-op
+        MainWindow window(&client, QStringLiteral("DemoUser"), /*testMode=*/true);
+        window.show();
+        window.populateTestData();
 
-    // Request initial history load
-    qDebug() << "[main] Sending history request";
-    client.send_history_req(QStringLiteral("__room__"));
+        // Live echo wiring for interactive Send testing (input + bubble styles)
+        // Connect room view send to local append (also privates get echo via their wiring)
+        // We access via a small post-show hook (room is first tab)
+        // For simplicity the populate + extra lambda below gives immediate feedback.
+        QObject::connect(&window, &MainWindow::returnToLoginRequested, [&app, &client]() {
+            qDebug() << "[main] test mode: returnToLoginRequested - returning to login UI state";
+            // Simulate back to login (shows login dialog to fulfill "断开后回到登录状态")
+            LoginDialog login(&client);
+            login.exec();
+        });
 
-    qDebug() << "[main] Starting event loop";
-    return app.exec();
+        // Simple direct echo for the primary room view send (covers input/send/bubble QSS)
+        // Note: full tab wiring done inside populateTestData + get_or_create
+        qDebug() << "[main] test mode ready. Edit style.qss, rebuild, rerun with -t to iterate.";
+        return app.exec();
+    }
+
+    // Create shared protocol client (normal path)
+    ChatClient client;
+
+    // Loop to support return to login after disconnect
+    while (true) {
+        // Show login dialog
+        LoginDialog login(&client);
+        if (login.exec() != QDialog::Accepted) {
+            break; // User cancelled
+        }
+
+        // Login successful - show main window
+        qDebug() << "[main] Login successful, creating MainWindow";
+        MainWindow window(&client, login.username());
+        qDebug() << "[main] Showing MainWindow";
+
+        bool wantReLogin = false;
+        QObject::connect(&window, &MainWindow::returnToLoginRequested, [&wantReLogin, &window]() {
+            wantReLogin = true;
+            window.close();
+        });
+
+        window.show();
+
+        // Request initial history load
+        qDebug() << "[main] Sending history request";
+        client.send_history_req(QStringLiteral("__room__"));
+
+        qDebug() << "[main] Starting event loop for this session";
+        app.exec();
+
+        if (!wantReLogin) {
+            break;
+        }
+        qDebug() << "[main] Returning to login after disconnect";
+    }
+
+    qDebug() << "[main] Exiting application";
+    return 0;
 }

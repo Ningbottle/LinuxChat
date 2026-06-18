@@ -1,6 +1,6 @@
 # LinuxChat — 瓶子交流器 (Bottle Messenger)
 
-一个基于 **C/S 架构** 的即时通讯应用:Linux epoll 服务端 + Windows Qt6 客户端,自定义 JSON-over-TCP 协议。报纸复古 + 紫藤萝瀑布视觉风格。本作品是《Linux 操作系统与程序设计》课程设计。
+一个基于 **C/S 架构** 的即时通讯应用:Linux epoll 服务端 + Windows Qt6 客户端,自定义 JSON-over-TCP 协议。Glassmorphism 暗色主题视觉风格。本作品是《Linux 操作系统与程序设计》课程设计。
 
 > **架构:C/S**。客户端为需安装运行的桌面程序(Qt6),服务端为 epoll TCP 服务器,二者通过自定义二进制帧协议通信。非 B/S(无浏览器/HTTP/Web 服务器)。
 
@@ -12,21 +12,60 @@ LinuxChat/
 │   ├── include/  src/  resources/  CMakeLists.txt
 ├── server/                 # C++ epoll 服务端 (Linux)
 │   ├── include/  src/  third_party/  CMakeLists.txt
-├── tests/                  # Google Test
+├── tests/                  # Google Test (108 tests)
 ├── docs/                   # 文档系统 (CDD)
 └── AGENTS.md / TODO.md     # CDD 契约 + 执行计划
 ```
 
-## 设计风格
+## 架构概览
 
-### 登录界面
-- **报纸复古风格**:米色背景 + 细微噪点纹理
-- **地球仪 SVG**:低透明度线条风格地球仪背景
-- **字体**:LXGW WenKai(霞鹜文楷)正文 + Newsreader 标题
+### 服务端架构
 
-### 主聊天界面
-- **紫藤萝瀑布背景**:宗璞《紫藤萝瀑布》风格 — 棕色藤蔓 + 淡紫色花穗 + 绿色叶子,SVG 平铺 opacity 0.35
-- **配色**:石墨灰系(`#44403c` / `#78776c` / `#faf9f7`)
+```
+main.cpp
+  ├── Database        (SQLite3 WAL, 持久化存储)
+  ├── EpollServer     (epoll LT 事件循环 + ThreadPool)
+  └── MessageRouter   (消息路由: 类型分发 + 在线用户管理)
+```
+
+**MessageRouter** 是核心路由组件，从 main.cpp 提取（430行 → 113行）：
+- `route()`: 根据 type 字段分发消息到对应 handler
+- `handle_register/login()`: SHA-256 (OpenSSL EVP) + Database 认证
+- `handle_broadcast/private()`: 消息存储 + 广播/私聊发送
+- `handle_logout()`: 在线用户管理 + 通知广播
+- `make_user_list_msg()`: 构建在线用户列表
+
+### 客户端架构
+
+```
+MainWindow (主窗口)
+  ├── ChatClient (TCP 协议封装)
+  │    └── QTcpSocket → JSON-over-TCP
+  ├── LoginDialog (登录/注册 UI)
+  ├── ChatView (消息显示 + 输入)
+  └── Sidebar (用户列表 + 会话切换)
+```
+
+## 设计风格 — Glassmorphism 暗色主题
+
+### 视觉特点
+- **深色背景**: Dark slate (#0f172a) 全局背景
+- **毛玻璃卡片**: 半透明背景 (rgba(255,255,255,0.05)) + backdrop-filter blur
+- **Indigo 强调色**: #6366f1 按钮、高亮、活跃状态
+- **微妙发光**: 1px rgba(255,255,255,0.1) 边框，悬停时增强
+- **圆角设计**: 12-16px 大圆角，现代感
+
+### 组件样式
+- **登录框**: 毛玻璃居中卡片，indigo 渐变登录按钮
+- **消息气泡**: 自己的消息 indigo 半透明，他人的消息深灰半透明
+- **侧边栏**: 更深的背景 (#0a0f1a)，选中项 indigo 高亮
+- **输入区**: 底部毛玻璃输入栏，indigo 发送按钮
+
+### 测试模式
+```bash
+# 快速测试 QSS 样式（跳过登录，直接进入聊天界面）
+./linuxchat_client.exe --test-chat
+```
 
 ## 快速开始
 
@@ -65,6 +104,27 @@ make -j$(nproc)
 ./linuxchat_server --help          # 帮助
 ```
 
+### 运行测试
+
+```bash
+# 编译测试
+cd tests
+mkdir build; cd build
+cmake ..
+cmake --build .
+
+# 运行所有测试 (108 个)
+ctest --output-on-failure
+
+# 运行特定模块测试
+./test_protocol        # 协议测试 (19 tests)
+./test_database        # 数据库测试 (27 tests)
+./test_message_router  # 路由测试 (27 tests)
+./test_message_handler # 处理器测试 (15 tests)
+./test_crypto          # 加密测试 (9 tests)
+./test_thread_pool     # 线程池测试 (11 tests)
+```
+
 ## 连接服务器
 
 在客户端登录界面:
@@ -79,31 +139,32 @@ make -j$(nproc)
 
 | 层 | 技术 |
 |---|---|
-| 服务端 | C++17 / epoll(level-triggered) / ThreadPool / SQLite3(WAL) / OpenSSL(SHA-256) / nlohmann::json |
-| 客户端 | C++17 / Qt6 Widgets / QSS / QPainter+SVG / QTcpSocket |
-| 协议 | JSON-over-TCP,4 字节大端长度前缀,16MB 上限 |
-| 测试 | Google Test(FetchContent) |
+| 服务端 | C++17 / epoll(level-triggered) / ThreadPool / SQLite3(WAL) / OpenSSL(SHA-256 EVP) / nlohmann::json |
+| 客户端 | C++17 / Qt6 Widgets / Glassmorphism QSS / QTcpSocket |
+| 协议 | JSON-over-TCP, 4 字节大端长度前缀, 16MB 上限, EAGAIN 重试 |
+| 测试 | Google Test (FetchContent), 108 个测试用例 |
 
 ## 特性
 
-- ✅ 报纸复古登录界面 + 紫藤萝瀑布聊天背景
-- ✅ 自定义字体(LXGW WenKai、Newsreader)
-- ✅ 消息气泡(发送/接收)+ 在线用户列表 + 当前会话高亮
+- ✅ Glassmorphism 暗色主题（毛玻璃效果 + Indigo 强调色）
+- ✅ 自定义字体 (LXGW WenKai、Newsreader)
+- ✅ 消息气泡(发送/接收) + 在线用户列表 + 当前会话高亮
 - ✅ 公聊广播 + 一对一私聊 + 历史消息加载
 - ✅ 跨平台(Windows 客户端 + Linux 服务端)
+- ✅ MessageRouter 架构（430 行 → 113 行）
+- ✅ 108 个单元测试全覆盖
+- ✅ --test-chat 模式快速 UI 迭代
 
 ## 文档
 
+- [架构说明](ARCHITECTURE.md)
+- [项目合约](CONTRACT.md)
 - [产品需求 PRD](docs/specs/prd.md)
 - [架构 Blueprint](docs/specs/blueprint.md)
 - [通信协议](docs/protocol.md)
 - [执行计划 TODO](TODO.md)
 - [实施日志](docs/JOURNAL.md)
-- [UI 设计规范](docs/superpowers/specs/2026-06-16-bottle-messenger-ui-design.md)
-
-## 当前状态(2026-06-17 审计)
-
-CDD Phase 1 审计发现 **3 个连接层缺陷**导致"有时连得上有时连不上 / 连接成功后立即断开"。修复计划见 [TODO.md](TODO.md) Step 01-03,审计详情见 [docs/JOURNAL.md](docs/JOURNAL.md)。
+- [课程设计展示](PRESENTATION.md)
 
 ## 许可证
 

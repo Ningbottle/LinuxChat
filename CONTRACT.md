@@ -1,8 +1,8 @@
 # LinuxChat — Project Contract
 
-> Version: 1.0
+> Version: 1.1
 > Status: Active
-> Last Updated: 2026-06-16
+> Last Updated: 2026-06-17
 
 ---
 
@@ -18,10 +18,10 @@ It implements real-time chat over TCP using a custom JSON-over-TCP protocol.
 | Server Runtime | Linux (epoll) | Kernel 4.x+ |
 | Server Language | C++ | C++17 |
 | Client Runtime | Windows | 10/11 |
-| Client Framework | Qt (Widgets + FluentUI) | Qt 6.x |
+| Client Framework | Qt (Widgets + Glassmorphism) | Qt 6.x |
 | Client Language | C++ | C++17 |
 | Database | SQLite3 | WAL mode |
-| Crypto | OpenSSL (SHA-256) | 1.1+ |
+| Crypto | OpenSSL (SHA-256 EVP) | 3.x |
 | Build System | CMake | 3.16+ |
 | JSON | nlohmann/json | 3.x |
 | Test Framework | Google Test | 1.14+ |
@@ -32,12 +32,12 @@ It implements real-time chat over TCP using a custom JSON-over-TCP protocol.
 
 | Module | File(s) | Responsibility |
 |--------|---------|----------------|
-| Protocol | `include/protocol.h`, `src/protocol.cpp` | JSON-over-TCP framing (4-byte BE prefix + JSON body) |
+| Protocol | `include/protocol.h`, `src/protocol.cpp` | JSON-over-TCP framing (4-byte BE prefix + JSON body), EAGAIN 重试 |
 | ThreadPool | `include/thread_pool.h`, `src/thread_pool.cpp` | Fixed-size task queue for worker threads |
-| ClientSession | `include/client_session.h` | Per-connection state (fd, username, recv_buf) |
-| EpollServer | `include/epoll_server.h`, `src/epoll_server.cpp` | epoll event loop, connection management, message dispatch |
+| ClientSession | `include/client_session.h` | Per-connection state (fd, username, recv_buf, generation) |
+| EpollServer | `include/epoll_server.h`, `src/epoll_server.cpp` | epoll event loop, connection management, shared_ptr sessions |
 | Database | `include/database.h`, `src/database.cpp` | SQLite3 persistence (users, messages) |
-| Main/Handler | `main.cpp` | Message handler logic, SHA-256, signal handling |
+| MessageRouter | `include/message_router.h`, `src/message_router.cpp` | 消息路由、SHA-256、在线用户管理 |
 
 ### Client (`LinuxChat/client/`)
 
@@ -53,9 +53,13 @@ It implements real-time chat over TCP using a custom JSON-over-TCP protocol.
 
 | Module | File | Tests |
 |--------|------|-------|
-| Protocol | `test_protocol.cpp` | Frame encoding/decoding, edge cases |
-| Database | `test_database.cpp` | CRUD operations, history queries |
-| Handler | `test_message_handler.cpp` | Message handler business logic |
+| Protocol | `test_protocol.cpp` | 19 tests: Frame encoding/decoding, edge cases |
+| Database | `test_database.cpp` | 27 tests: CRUD operations, history queries |
+| MessageHandler | `test_message_handler.cpp` | 15 tests: Handler business logic |
+| MessageRouter | `test_message_router.cpp` | 27 tests: Router dispatch, auth, online management |
+| Crypto | `test_crypto.cpp` | 9 tests: SHA-256 EVP API |
+| ThreadPool | `test_thread_pool.cpp` | 11 tests: Thread pool task dispatch |
+| **Total** | | **108 tests** |
 
 ## 4. Interface Contracts
 
@@ -71,10 +75,26 @@ class Database {
 };
 ```
 
-### MessageHandler Signature
+### MessageRouter API
 ```cpp
-void handle_message(ClientSession& session, const nlohmann::json& msg);
-void handle_disconnect(ClientSession& session);
+class MessageRouter {
+    explicit MessageRouter(Database& db);
+    void set_server(EpollServer* server);
+    void route(ClientSession& session, const nlohmann::json& msg);
+
+    // Individual handlers (public for testing)
+    void handle_register(ClientSession& session, const nlohmann::json& msg);
+    void handle_login(ClientSession& session, const nlohmann::json& msg);
+    void handle_logout(ClientSession& session);
+    void handle_broadcast(ClientSession& session, const nlohmann::json& msg);
+    void handle_private(ClientSession& session, const nlohmann::json& msg);
+    void handle_history_req(ClientSession& session, const nlohmann::json& msg);
+
+    // Online user management
+    nlohmann::json make_user_list_msg();
+    void broadcast_user_list();
+    bool is_user_online(const std::string& username) const;
+};
 ```
 
 ### ChatClient Signals
@@ -88,7 +108,8 @@ notify_received(content)
 
 ## 5. Constraints
 
-- **Immutable files**: `protocol.cpp`, `thread_pool.cpp`, all server `.h` headers, `style.qss`, `resources.qrc`, `protocol.md`
+- **Immutable files**: `thread_pool.cpp`, all server `.h` headers, `resources.qrc`, `protocol.md`
+- **Modified files** (已修改，不再是 immutable): `protocol.cpp` (EAGAIN 重试), `style.qss` (Glassmorphism 重写)
 - **Style rule**: All client UI styles via QSS objectName selectors; never inline `setStyleSheet()`
 - **Protocol**: `to="__room__"` denotes broadcast history; `to=username` denotes private history
 - **Feature scope (Phase 1)**: Register, Login, Broadcast, Private, OnlineUserList, History
@@ -96,11 +117,21 @@ notify_received(content)
 
 ## 6. Acceptance Criteria
 
-- [ ] Server compiles and runs on Linux
-- [ ] Client compiles and runs on Windows (Qt6)
-- [ ] All protocol tests pass
-- [ ] All database tests pass
-- [ ] All message handler tests pass
-- [ ] Register → Login → Broadcast → Private chat flow works end-to-end
-- [ ] History messages load on login
-- [ ] Online user list updates on connect/disconnect
+- [x] Server compiles and runs on Linux
+- [x] Client compiles and runs on Windows (Qt6)
+- [x] All 108 protocol/database/handler/router/crypto/thread_pool tests pass
+- [x] Register → Login → Broadcast → Private chat flow works end-to-end
+- [x] History messages load on login
+- [x] Online user list updates on connect/disconnect
+- [x] MessageRouter 正确路由所有消息类型
+- [x] shared_ptr 消除 use-after-free
+- [x] broadcast 锁优化（复制-释放-发送）
+- [x] write_all EAGAIN 重试机制
+
+## 7. Protocol Version
+
+- **Version**: 1.0 (JSON-over-TCP)
+- **Frame format**: 4-byte big-endian length prefix + JSON body
+- **Max frame size**: 16 MB
+- **Message types**: REGISTER, LOGIN, LOGOUT, BROADCAST, PRIVATE, HISTORY_REQ, HISTORY_RESP, USER_LIST, NOTIFY, ERROR, LOGIN_OK
+- **Changes in v1.0.1**: `protocol.cpp` 添加 EAGAIN/EINTR 重试，`send_all` 循环处理部分写入

@@ -36,6 +36,7 @@ set(SERVER_SOURCES
     ${SERVER_DIR}/src/thread_pool.cpp
     ${SERVER_DIR}/src/database.cpp
     ${SERVER_DIR}/src/epoll_server.cpp
+    ${SERVER_DIR}/src/message_router.cpp
 )
 
 # ── Test: Protocol ────────────────────────────────────────────────
@@ -72,9 +73,52 @@ target_link_libraries(test_handler
     pthread
 )
 
+# ── Test: Crypto (SHA-256) ──────────────────────────────────────
+add_executable(test_crypto
+    test_crypto.cpp
+    ${SERVER_DIR}/src/message_router.cpp
+    ${SERVER_DIR}/src/database.cpp
+    ${SERVER_DIR}/src/protocol.cpp
+    ${SERVER_DIR}/src/epoll_server.cpp
+    ${SERVER_DIR}/src/thread_pool.cpp
+)
+target_link_libraries(test_crypto
+    GTest::gtest_main
+    sqlite3
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    pthread
+)
+
+# ── Test: Message Router ────────────────────────────────────────
+add_executable(test_router
+    test_message_router.cpp
+    ${SERVER_SOURCES}
+)
+target_link_libraries(test_router
+    GTest::gtest_main
+    sqlite3
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    pthread
+)
+
+# ── Test: Thread Pool ───────────────────────────────────────────
+add_executable(test_thread_pool
+    test_thread_pool.cpp
+    ${SERVER_DIR}/src/thread_pool.cpp
+)
+target_link_libraries(test_thread_pool
+    GTest::gtest_main
+    pthread
+)
+
 # ── CTest integration ────────────────────────────────────────────
 enable_testing()
 include(GoogleTest)
 gtest_discover_tests(test_protocol)
 gtest_discover_tests(test_database)
 gtest_discover_tests(test_handler)
+gtest_discover_tests(test_crypto)
+gtest_discover_tests(test_router)
+gtest_discover_tests(test_thread_pool)

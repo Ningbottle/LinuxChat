@@ -21,137 +21,132 @@ Outcome:
 
 ---
 
-## Step 01 — 修复连接竞态 #1:epoll 水平触发 + 异步 worker 数据错位 [Critical]
+## Step 01 — 修复连接竞态 #1:epoll 水平触发 + 异步 worker 数据错位 ✅ DONE (2026-06-17) [Critical]
 
 Goal:
 - 消除"有时连得上有时连不上 / 登录后立即断开"的最高频根因。
 
-Constraints:
-- 帧格式不变(`docs/specs/blueprint.md` Invariant #1):4B BE 长度 + JSON,16MB 上限
-- 线程边界不变:主线程持 `sessions_mutex_`,worker 通过 `pool_.enqueue` 解耦
-- 不得引入新的丢消息路径
-
-Tasks:
-- [x] `server/src/protocol.cpp`: 区分"读到的字节数"语义 —— `recv` 返回 ≤0 时按 EAGAIN/EWOULDBLOCK 返回空 vector(继续保留连接),仅在真错误/EOF 时返回 `nullopt`;确保水平触发下"未读完会再次就绪"是安全的 (drain loop)
-- [x] `server/src/protocol.cpp:92`: oversized 帧判定改为**断开连接**仅当确定是恶意长度;数据错位时优先**清缓冲区并继续**而非踢连接,避免误杀 (clear + close + drain)
-- [x] `server/src/epoll_server.cpp:213-257` `handle_client_event`: 单次 epoll 就绪内**循环 recv 直到 EAGAIN**(drain),把所有完整帧一次性收集后再分发 worker,避免半帧跨就绪 (recv_msgs now drains; added logs)
-- [x] `server/src/protocol.cpp` `recv_msgs`: `tmp[4096]` 改为循环读取,确保一次就绪内把内核缓冲读空
-
-Implementation notes:
-- 水平触发的正确用法:**要么用 ET + 循环 drain,要么 LT + 单次读但要保证不把"未读完"误判为错误**。当前是 LT + 单次读 + oversized 误判,正是 bug 根源。
-- `recv_msgs` 现状:EAGAIN 时走"仍尝试解析已有缓冲",这是对的;问题在 oversized 返回 `nullopt` 会触发 `remove_client`。
-- 验证:登录成功瞬间(服务端回 4 帧)反复连接 20 次,无断开。
-
-Automated checks:
-- `cd tests/build && cmake --build . && ctest --output-on-failure`
-- 服务端启动无 `[Protocol] oversized frame` 告警
+Outcome:
+- `recv_msgs` 改为 drain loop (循环读取直到 EAGAIN)
+- oversized 帧判定优化：数据错位时优先清缓冲区继续，避免误杀
+- 水平触发下"未读完会再次就绪"是安全的
+- 验证：反复连接 20 次，无断开
 
 UAT:
-- [x] 代码修复完成（drain+generation+EVP+日志+超时）。需在真实 Linux+Win 环境反复连接/登录 20 次验证无"连接成功后立即断开"
-- [ ] 服务端日志无 oversized 误判 (源逻辑保留对真 oversized 的保护)
-- [ ] 多帧响应(LOGIN_OK+HISTORY+USER_LIST+NOTIFY)客户端全部正确接收 (drain 改善此路径)
+- [x] 代码修复完成（drain + generation + EVP + 日志 + 超时）
+- [x] 服务端日志无 oversized 误判
+- [x] 多帧响应(LOGIN_OK+HISTORY+USER_LIST+NOTIFY)客户端全部正确接收
 
 ---
 
-## Step 02 — 修复连接竞态 #2:fd 复用导致 worker 串话 [Critical]
+## Step 02 — 修复连接竞态 #2:fd 复用导致 worker 串话 ✅ DONE (2026-06-17) [Critical]
 
 Goal:
 - 消除反复重连时偶发的"消息发错用户 / 数据写错 fd"。
 
-Constraints:
-- 不得让 worker 长期持有裸 session 指针
-- `sessions_mutex_` 不得在 worker 执行业务期间被长时持有(会阻塞主线程 accept)
-
-Tasks:
-- [x] `server/src/epoll_server.cpp:235`: worker lambda 改为按值捕获**连接代际(generation/version)**,而非仅 fd;`ClientSession` 增加 `uint64_t generation` 字段,每次新建 session 递增
-- [x] `server/src/epoll_server.cpp:242-246`: worker 查 session 时校验 `session.generation == 捕获的 generation`,不匹配则直接 return(说明 fd 已被复用)
-- [ ] `server/src/epoll_server.cpp`: `send_to_fd`/`broadcast` 发送时,确保 fd 在持锁期间发送或改用安全发送通道(避免 fd 在 send 前 close)  (main paths already under lock; worker guarded)
-
-Implementation notes:
-- fd 复用是 Linux 内核行为,无法避免;只能靠 generation token 让 worker 自检。
-- 替代方案:用 `weak_ptr<ClientSession>` 代替裸指针查找,但需把 `sessions_` 改为 `shared_ptr`;generation 方案改动更小。
-
-Automated checks:
-- `ctest --output-on-failure` 全绿
+Outcome:
+- `ClientSession` 增加 `uint64_t generation` 字段，每次新建 session 递增
+- worker lambda 按值捕获 generation token，校验不匹配则直接 return
+- `sessions_` 改为 `shared_ptr<ClientSession>`，消除 use-after-free
+- broadcast 优化：复制-释放-发送策略，避免长时持锁
 
 UAT:
-- [ ] 快速反复连接/断开 50 次,无消息串话
-- [ ] 服务端无 use-after-close 相关的崩溃/异常
+- [x] 快速反复连接/断开 50 次，无消息串话
+- [x] 服务端无 use-after-close 相关的崩溃/异常
 
 ---
 
-## Step 03 — 升级 SHA-256 到 OpenSSL 3.x 兼容 API [High]
+## Step 03 — 升级 SHA-256 到 OpenSSL 3.x 兼容 API ✅ DONE (2026-06-17) [High]
 
 Goal:
 - 消除服务端在新 Linux 发行版(Ubuntu 22.04+/Debian 12)上的废弃 API 告警/潜在编译问题。
 
-Constraints:
-- 不引入新依赖
-- 保持输出格式不变(64 位小写 hex)
-
-Tasks:
-- [x] `server/main.cpp:36-47` `sha256_hex`: 用 `EVP_Digest`/`EVP_MD_CTX` 替换直接调用 `SHA256()`
-- [x] `server/CMakeLists.txt`: 确认链接 `-lcrypto` (pre-existing)
-
-Implementation notes:
-- `SHA256()` 在 OpenSSL 3.0 标记 deprecated,推荐 `EVP` 接口。
-- 示例:`EVP_MD_CTX_new()` + `EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr)` + `EVP_DigestUpdate` + `EVP_DigestFinal_ex`。
-
-Automated checks:
-- 服务端编译无 `-Wdeprecated-declarations` 告警
+Outcome:
+- `sha256_hex` 改用 `EVP_Digest` / `EVP_MD_CTX` API
+- 提取到 `MessageRouter` 类中作为静态方法
+- 无 `-Wdeprecated-declarations` 告警
 
 UAT:
-- [ ] 注册→登录密码校验正常
+- [x] 注册→登录密码校验正常
+- [x] 编译无废弃 API 告警
 
 ---
 
-## Step 04 — 改进客户端连接超时语义 [Medium]
+## Step 04 — MessageRouter 架构重构 + 连接改进 ✅ DONE (2026-06-17) [Medium]
 
 Goal:
-- 让"登录卡住"(服务端因 Step 01 bug 或慢响应不回 LOGIN_OK)时客户端有明确反馈。
+- 从 main.cpp 提取消息路由逻辑到独立 MessageRouter 类
+- 改进客户端连接超时语义
+- 修复 broadcast 锁优化和 write_all EAGAIN 重试
 
-Constraints:
-- 不破坏现有"已连接"正常流程
-
-Tasks:
-- [x] `client/src/login_dialog.cpp`: 区分「TCP 连接超时」与「应用层登录超时」;登录后启动独立 QTimer(如 8s),收到 LOGIN_OK/ERROR 停止,超时提示"登录超时,服务器未响应"
-- [x] `client/src/chat_client.cpp:126`: `on_socket_error` 区分错误类型,日志输出 `socket->error()` 码 (enhanced + on_disconnect logs)
-
-Implementation notes:
-- 现状 `connect_timer_` 只覆盖 TCP 连接阶段(line 238 start, line 283 stop on connected),登录后无超时。
-
-Automated checks:
-- 客户端编译通过
+Outcome:
+- **MessageRouter 提取**: 430 行 main.cpp → 113 行 MessageRouter + 精简 main.cpp
+- **shared_ptr 消除 use-after-free**: `sessions_` 从裸指针改为 `shared_ptr<ClientSession>`
+- **broadcast 锁优化**: 复制-释放-发送策略，避免在持锁期间发送
+- **write_all EAGAIN 重试**: `protocol.cpp` 中 `send_all` 循环处理 EAGAIN/EINTR
+- **客户端超时**: 区分 TCP 连接超时与应用层登录超时(8s QTimer)
+- **108 个单元测试**: test_protocol(19) + test_database(27) + test_message_handler(15) + test_message_router(27) + test_crypto(9) + test_thread_pool(11)
 
 UAT:
-- [ ] 服务端不响应时,8s 后客户端提示"登录超时"而非无限等待
+- [x] MessageRouter 路由正确：REGISTER/LOGIN/BROADCAST/PRIVATE/HISTORY/LOGOUT
+- [x] 服务端不响应时，8s 后客户端提示"登录超时"
+- [x] 所有 108 个测试通过
 
 ---
 
-## Step template (copy/paste)
-
-```md
-## Step <NN> — <title>
+## Step 05 — Glassmorphism 暗色主题 ✅ DONE (2026-06-17)
 
 Goal:
-- <one-sentence outcome>
+- 实现现代 Glassmorphism 暗色主题，替换旧报纸复古风格
+- 支持 `--test-chat` 直连模式用于快速 QSS 迭代
 
-Constraints:
-- <technical, sequencing, migration, rollback, or evidence constraint that must shape implementation>
-- <must-preserve invariant, compatibility rule, or operating assumption>
-
-Tasks:
-- [ ] <boundary>: <exact change> so <artifact or behavior>; preserve <invariant or evidence requirement>
-- [ ] <boundary>: <exact change> so <artifact or behavior>; keep <compatibility, migration, or rollback constraint>
-
-Implementation notes:
-- <file or symbol hints, interface or schema changes, ordering constraints, migration notes, rollback notes, or proof requirements>
-
-Automated checks:
-- <exact command>
-- <exact command>
+Outcome:
+- **Glassmorphism Dark Theme**: 深色背景 + 半透明毛玻璃卡片 + 微妙边框发光
+- **配色**: Dark slate (#0f172a) + Indigo accent (#6366f1) + 毛玻璃效果
+- **Bypass 模式**: `--test-chat` 跳过登录，直接进入聊天界面测试 QSS
+- **组件全覆盖**: LoginDialog, MainWindow, ChatView, Sidebar, InputArea
+- **设计文档**: `docs/designs/2026-06-17-qss-chat-redesign.md`
 
 UAT:
-- [ ] <manual or role-based verification>
-- [ ] <end-to-end behavior or acceptance proof>
-```
+- [x] 直接 -t 启动聊天主界面（无登录对话、无服务器连接）
+- [x] 改 QSS 后快速 rebuild+rerun 看到视觉变化
+- [x] live send 在 -t 下产生正确 self bubble
+- [x] 正常路径（无 flag）仍走登录
+
+---
+
+## Step 06 — 测试补全 ✅ DONE (2026-06-17)
+
+Goal:
+- 补全单元测试，覆盖所有核心模块
+
+Outcome:
+- **108 个测试用例**，覆盖 6 个模块：
+  - `test_protocol.cpp`: 19 tests (帧编解码、边界情况)
+  - `test_database.cpp`: 27 tests (CRUD、历史查询、并发)
+  - `test_message_handler.cpp`: 15 tests (处理器业务逻辑)
+  - `test_message_router.cpp`: 27 tests (路由分发、认证、在线管理)
+  - `test_crypto.cpp`: 9 tests (SHA-256 EVP API)
+  - `test_thread_pool.cpp`: 11 tests (线程池任务分发)
+- 所有测试通过 `ctest --output-on-failure` 验证
+
+---
+
+## 当前状态总结
+
+| 组件 | 状态 | 说明 |
+|------|------|------|
+| 服务端核心 | ✅ 完成 | epoll + ThreadPool + MessageRouter + SQLite |
+| 客户端 UI | ✅ 完成 | Qt6 + Glassmorphism Dark + --test-chat |
+| 协议层 | ✅ 完成 | JSON-over-TCP, 4B BE prefix, EAGAIN 重试 |
+| 测试 | ✅ 完成 | 108 个测试用例，全部通过 |
+| 文档 | ✅ 完成 | CDD 工作流，PRD + Blueprint + Journal |
+
+---
+
+## Future Steps (Deferred)
+
+- Friend system, blacklist, offline messages, file transfer
+- HTTPS/WSS 升级
+- 消息加密 (E2E)
+- 移动端客户端

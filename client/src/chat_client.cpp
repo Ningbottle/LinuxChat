@@ -31,6 +31,9 @@ ChatClient::ChatClient(QObject* parent)
 void ChatClient::connect_to_server(const QString& host, quint16 port) {
     qDebug("[ChatClient] Connecting to %s:%d", qUtf8Printable(host), port);
     recv_buf_.clear();
+    if (socket_->state() != QAbstractSocket::UnconnectedState) {
+        socket_->abort();
+    }
     socket_->connectToHost(host, port);
 }
 
@@ -42,6 +45,10 @@ void ChatClient::disconnect_from_server() {
 
 bool ChatClient::is_connected() const {
     return socket_->state() == QAbstractSocket::ConnectedState;
+}
+
+QAbstractSocket::SocketState ChatClient::socketState() const {
+    return socket_->state();
 }
 
 // ── Send Protocol Messages ─────────────────────────────────────────
@@ -184,7 +191,13 @@ void ChatClient::process_frames() {
 void ChatClient::dispatch_message(const QJsonObject& msg) {
     QString type = msg["type"].toString();
 
-    if (type == "LOGIN_OK") {
+    if (type == "PING") {
+        // Heartbeat: auto-respond with PONG to keep connection alive
+        QJsonObject pong;
+        pong["type"] = QStringLiteral("PONG");
+        send_json(pong);
+
+    } else if (type == "LOGIN_OK") {
         emit login_ok(msg["from"].toString());
 
     } else if (type == "ERROR") {

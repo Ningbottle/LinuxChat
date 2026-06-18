@@ -28,6 +28,8 @@ public:
     /// Whether the TCP socket is currently connected.
     bool is_connected() const;
 
+    QAbstractSocket::SocketState socketState() const;
+
     // ── Send Protocol Messages ─────────────────────────────────────
 
     void send_register(const QString& username, const QString& password);

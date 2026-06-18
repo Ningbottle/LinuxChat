@@ -36,6 +36,10 @@ public:
     /// Focus the input field.
     void focus_input();
 
+    /// Populate with rich test/mock data for direct QSS testing (no server).
+    /// Safe to call once after construction/show. Adds mixed self/other + system messages.
+    void populateTestData();
+
 signals:
     /// Emitted when the user clicks Send or presses Enter.
     void send_requested();
@@ -45,10 +49,16 @@ private:
     QWidget* create_bubble(const QString& username, const QString& content,
                            qint64 timestamp, bool is_self);
     QWidget* create_system_bubble(const QString& content);
+    QWidget* create_time_separator(const QString& time_text);
 
     QVBoxLayout*  message_layout_ = nullptr;
     QScrollArea*  scroll_area_    = nullptr;
     QWidget*      scroll_widget_  = nullptr;
     QTextEdit*    input_field_    = nullptr;
     QPushButton*  send_btn_       = nullptr;
+
+    qint64 last_message_timestamp_ = 0;  ///< Track last message for time grouping
+
+    /// Format a timestamp into a human-readable Chinese time string
+    static QString format_time_separator(qint64 timestamp);
 };

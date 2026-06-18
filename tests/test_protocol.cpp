@@ -238,6 +238,86 @@ TEST(ProtocolRecv, EmptyRead_NoDataAvailable) {
     close(write_fd);
 }
 
+// ── Content Tests ──────────────────────────────────────────────────
+
+TEST(ProtocolSend, LargeMessage_10KB_Content) {
+    auto [read_fd, write_fd] = make_pipe();
+    ClientSession session(read_fd);
+
+    // 10KB content (fits in pipe buffer; avoids write-block deadlock)
+    std::string large_content(10 * 1024, 'x');
+    json msg = {{"type", "BROADCAST"}, {"from", "alice"}, {"content", large_content}};
+    EXPECT_TRUE(Protocol::send_msg(write_fd, msg));
+
+    auto msgs = Protocol::recv_msgs(session);
+    ASSERT_TRUE(msgs.has_value());
+    ASSERT_EQ(msgs->size(), 1u);
+    EXPECT_EQ((*msgs)[0]["content"], large_content);
+
+    close(read_fd);
+    close(write_fd);
+}
+
+TEST(ProtocolSend, EmptyContent) {
+    auto [read_fd, write_fd] = make_pipe();
+    ClientSession session(read_fd);
+
+    json msg = {{"type", "BROADCAST"}, {"from", "alice"}, {"content", ""}};
+    EXPECT_TRUE(Protocol::send_msg(write_fd, msg));
+
+    auto msgs = Protocol::recv_msgs(session);
+    ASSERT_TRUE(msgs.has_value());
+    ASSERT_EQ(msgs->size(), 1u);
+    EXPECT_EQ((*msgs)[0]["content"], "");
+
+    close(read_fd);
+    close(write_fd);
+}
+
+TEST(ProtocolSend, UnicodeContent) {
+    auto [read_fd, write_fd] = make_pipe();
+    ClientSession session(read_fd);
+
+    json msg = {{"type", "BROADCAST"}, {"from", "alice"}, {"content", "你好世界🌍"}};
+    EXPECT_TRUE(Protocol::send_msg(write_fd, msg));
+
+    auto msgs = Protocol::recv_msgs(session);
+    ASSERT_TRUE(msgs.has_value());
+    ASSERT_EQ(msgs->size(), 1u);
+    EXPECT_EQ((*msgs)[0]["content"], "你好世界🌍");
+
+    close(read_fd);
+    close(write_fd);
+}
+
+TEST(ProtocolSend, MultipleFields) {
+    auto [read_fd, write_fd] = make_pipe();
+    ClientSession session(read_fd);
+
+    json msg = {
+        {"type",      "PRIVATE"},
+        {"from",      "alice"},
+        {"to",        "bob"},
+        {"content",   "secret message"},
+        {"timestamp", 1700000000}
+    };
+    EXPECT_TRUE(Protocol::send_msg(write_fd, msg));
+
+    auto msgs = Protocol::recv_msgs(session);
+    ASSERT_TRUE(msgs.has_value());
+    ASSERT_EQ(msgs->size(), 1u);
+    EXPECT_EQ((*msgs)[0]["type"], "PRIVATE");
+    EXPECT_EQ((*msgs)[0]["from"], "alice");
+    EXPECT_EQ((*msgs)[0]["to"], "bob");
+    EXPECT_EQ((*msgs)[0]["content"], "secret message");
+    EXPECT_EQ((*msgs)[0]["timestamp"], 1700000000);
+
+    close(read_fd);
+    close(write_fd);
+}
+
+// ── Send Error / OK Edge Cases ─────────────────────────────────────
+
 TEST(ProtocolSendError, SendsErrorFrame) {
     auto [read_fd, write_fd] = make_pipe();
     ClientSession session(read_fd);
@@ -266,6 +346,66 @@ TEST(ProtocolSendOk, SendsOkFrame) {
     ASSERT_EQ(msgs->size(), 1u);
     EXPECT_EQ((*msgs)[0]["type"], "LOGIN_OK");
     EXPECT_EQ((*msgs)[0]["from"], "alice");
+
+    close(read_fd);
+    close(write_fd);
+}
+
+TEST(ProtocolSendError, EmptyContent_UsesCodeAsContent) {
+    auto [read_fd, write_fd] = make_pipe();
+    ClientSession session(read_fd);
+
+    // When content is empty, Protocol uses code as content
+    EXPECT_TRUE(Protocol::send_error(write_fd, "WRONG_PASSWORD"));
+
+    auto msgs = Protocol::recv_msgs(session);
+    ASSERT_TRUE(msgs.has_value());
+    ASSERT_EQ(msgs->size(), 1u);
+    EXPECT_EQ((*msgs)[0]["type"], "ERROR");
+    EXPECT_EQ((*msgs)[0]["code"], "WRONG_PASSWORD");
+    EXPECT_EQ((*msgs)[0]["content"], "WRONG_PASSWORD");  // code used as content
+
+    close(read_fd);
+    close(write_fd);
+}
+
+TEST(ProtocolSendOk, WithoutFrom) {
+    auto [read_fd, write_fd] = make_pipe();
+    ClientSession session(read_fd);
+
+    EXPECT_TRUE(Protocol::send_ok(write_fd, "LOGOUT_OK"));
+
+    auto msgs = Protocol::recv_msgs(session);
+    ASSERT_TRUE(msgs.has_value());
+    ASSERT_EQ(msgs->size(), 1u);
+    EXPECT_EQ((*msgs)[0]["type"], "LOGOUT_OK");
+    EXPECT_FALSE((*msgs)[0].contains("from"));  // "from" field absent
+
+    close(read_fd);
+    close(write_fd);
+}
+
+TEST(ProtocolSend, JsonWithNestedStructure) {
+    auto [read_fd, write_fd] = make_pipe();
+    ClientSession session(read_fd);
+
+    json msg = {
+        {"type", "HISTORY_RESP"},
+        {"to", "__room__"},
+        {"data", json::array({
+            {{"from", "alice"}, {"content", "msg1"}, {"timestamp", 1000}},
+            {{"from", "bob"},   {"content", "msg2"}, {"timestamp", 2000}}
+        })}
+    };
+    EXPECT_TRUE(Protocol::send_msg(write_fd, msg));
+
+    auto msgs = Protocol::recv_msgs(session);
+    ASSERT_TRUE(msgs.has_value());
+    ASSERT_EQ(msgs->size(), 1u);
+    EXPECT_EQ((*msgs)[0]["type"], "HISTORY_RESP");
+    ASSERT_EQ((*msgs)[0]["data"].size(), 2u);
+    EXPECT_EQ((*msgs)[0]["data"][0]["from"], "alice");
+    EXPECT_EQ((*msgs)[0]["data"][1]["from"], "bob");
 
     close(read_fd);
     close(write_fd);

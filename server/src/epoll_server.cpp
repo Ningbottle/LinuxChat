@@ -11,6 +11,7 @@
 
 #include <sys/socket.h>
 #include <sys/epoll.h>
+#include <sys/timerfd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -41,6 +42,30 @@ EpollServer::EpollServer(int port, size_t num_workers)
         throw std::runtime_error("EpollServer: pipe2 failed: " +
                                  std::string(strerror(errno)));
     }
+
+    // Create heartbeat timerfd (fires every 30 seconds)
+    heartbeat_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+    if (heartbeat_fd_ < 0) {
+        close(epoll_fd_);
+        close(wakeup_pipe_[0]);
+        close(wakeup_pipe_[1]);
+        epoll_fd_ = -1;
+        throw std::runtime_error("EpollServer: timerfd_create failed: " +
+                                 std::string(strerror(errno)));
+    }
+
+    struct itimerspec ts{};
+    ts.it_interval.tv_sec = HEARTBEAT_INTERVAL_SEC;  // repeat every 30s
+    ts.it_value.tv_sec    = HEARTBEAT_INTERVAL_SEC;   // first fire after 30s
+    if (timerfd_settime(heartbeat_fd_, 0, &ts, nullptr) < 0) {
+        close(heartbeat_fd_);
+        close(epoll_fd_);
+        close(wakeup_pipe_[0]);
+        close(wakeup_pipe_[1]);
+        epoll_fd_ = -1;
+        throw std::runtime_error("EpollServer: timerfd_settime failed: " +
+                                 std::string(strerror(errno)));
+    }
 }
 
 EpollServer::~EpollServer() {
@@ -55,6 +80,7 @@ EpollServer::~EpollServer() {
         sessions_.clear();
     }
 
+    if (heartbeat_fd_ >= 0) close(heartbeat_fd_);
     if (epoll_fd_ >= 0)  close(epoll_fd_);
     if (wakeup_pipe_[0] >= 0) close(wakeup_pipe_[0]);
     if (wakeup_pipe_[1] >= 0) close(wakeup_pipe_[1]);
@@ -121,6 +147,11 @@ void EpollServer::run() {
     ev.data.fd = wakeup_pipe_[0];
     epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, wakeup_pipe_[0], &ev);
 
+    // Register heartbeat timerfd
+    ev.events = EPOLLIN;
+    ev.data.fd = heartbeat_fd_;
+    epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, heartbeat_fd_, &ev);
+
     std::cout << "[Server] Listening on port " << port_ << "\n";
 
     running_ = true;
@@ -144,6 +175,13 @@ void EpollServer::run() {
                 // Stop signal received
                 running_ = false;
                 break;
+            } else if (fd == heartbeat_fd_) {
+                // Heartbeat timer fired — read to disarm, then broadcast PING
+                uint64_t expirations;
+                (void)::read(heartbeat_fd_, &expirations, sizeof(expirations));
+                nlohmann::json ping_msg;
+                ping_msg["type"] = "PING";
+                broadcast(ping_msg);
             } else if (fd == listen_fd_) {
                 handle_new_connection();
             } else {
@@ -185,7 +223,7 @@ void EpollServer::handle_new_connection() {
 
     // Create session
     uint64_t gen = next_generation_++;
-    auto session = std::make_unique<ClientSession>(client_fd);
+    auto session = std::make_shared<ClientSession>(client_fd);
     session->generation = gen;
 
     // Register with epoll
@@ -213,17 +251,17 @@ void EpollServer::handle_new_connection() {
 }
 
 void EpollServer::handle_client_event(int fd) {
-    ClientSession* session = nullptr;
+    std::shared_ptr<ClientSession> session;
 
     {
         std::lock_guard<std::mutex> lock(sessions_mutex_);
         auto it = sessions_.find(fd);
         if (it == sessions_.end()) return;
-        session = it->second.get();
+        session = it->second;  // copy shared_ptr to keep session alive
     }
 
     // Read (drained inside recv_msgs for LT epoll safety) and extract complete messages.
-    // Oversized or true error/EOF returns nullopt → close.
+    // Oversized or true error/EOF returns nullopt -> close.
     auto msgs = Protocol::recv_msgs(*session);
 
     if (!msgs.has_value()) {
@@ -243,28 +281,19 @@ void EpollServer::handle_client_event(int fd) {
             }
         }
         if (on_message_) {
-            // Capture fd + generation. Worker must re-validate generation to
-            // protect against fd reuse after close + rapid new accept.
+            // Capture shared_ptr copy + generation. The shared_ptr prevents
+            // use-after-free if remove_client() runs before the worker executes.
+            // Generation check protects against fd reuse after close + rapid accept.
+            auto sess_copy = session;
             uint64_t gen_at_dispatch = session->generation;
-            pool_.enqueue([this, fd, gen_at_dispatch, msg]() {
-                // IMPORTANT: Look up session WITHOUT holding sessions_mutex_
-                // to avoid deadlock. The handler (on_message_) may call back
-                // into broadcast()/find_fd()/send_to_fd() which also lock
-                // sessions_mutex_.
-                ClientSession* sess = nullptr;
-                {
-                    std::lock_guard<std::mutex> lock(sessions_mutex_);
-                    auto it = sessions_.find(fd);
-                    if (it == sessions_.end()) return;
-                    sess = it->second.get();
-                    if (sess->generation != gen_at_dispatch) {
-                        // fd was recycled; drop stale task
-                        return;
-                    }
+            pool_.enqueue([this, fd, gen_at_dispatch, msg, sess_copy]() {
+                if (sess_copy->generation != gen_at_dispatch) {
+                    // fd was recycled; drop stale task
+                    return;
                 }
 
                 try {
-                    on_message_(*sess, msg);
+                    on_message_(*sess_copy, msg);
                 } catch (const std::exception& e) {
                     std::cerr << "[Server] Handler exception for fd=" << fd
                               << ": " << e.what() << "\n";
@@ -278,13 +307,13 @@ void EpollServer::remove_client(int fd) {
     // Remove from epoll
     epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
 
-    std::unique_ptr<ClientSession> removed_session;
+    std::shared_ptr<ClientSession> removed_session;
 
     {
         std::lock_guard<std::mutex> lock(sessions_mutex_);
         auto it = sessions_.find(fd);
         if (it != sessions_.end()) {
-            removed_session = std::move(it->second);
+            removed_session = it->second;
             sessions_.erase(it);
         }
     }
@@ -317,11 +346,19 @@ void EpollServer::set_nonblocking(int fd) {
 // ── Messaging API ──────────────────────────────────────────────────
 
 void EpollServer::broadcast(const nlohmann::json& msg, const std::string& exclude_username) {
-    std::lock_guard<std::mutex> lock(sessions_mutex_);
-    for (auto& [fd, session] : sessions_) {
-        if (!session->is_authenticated()) continue;
-        if (!exclude_username.empty() && session->username == exclude_username) continue;
-
+    // Copy target fds under lock, then send WITHOUT holding the lock.
+    // Prevents deadlock: send_to_fd (called by handlers on worker threads)
+    // also locks sessions_mutex_.
+    std::vector<int> fds;
+    {
+        std::lock_guard<std::mutex> lock(sessions_mutex_);
+        for (const auto& [fd, session] : sessions_) {
+            if (!session->is_authenticated()) continue;
+            if (!exclude_username.empty() && session->username == exclude_username) continue;
+            fds.push_back(fd);
+        }
+    }
+    for (int fd : fds) {
         Protocol::send_msg(fd, msg);
     }
 }

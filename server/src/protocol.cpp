@@ -7,18 +7,29 @@
 #include <cerrno>
 #include <cstring>
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 namespace Protocol {
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 /// Write exactly `len` bytes to `fd`. Returns false on failure.
+/// Retries on EAGAIN/EWOULDBLOCK (non-blocking socket transient condition).
 static bool write_all(int fd, const void* buf, size_t len) {
     const uint8_t* p = static_cast<const uint8_t*>(buf);
     size_t sent = 0;
     while (sent < len) {
         ssize_t n = ::send(fd, p + sent, len - sent, MSG_NOSIGNAL);
-        if (n <= 0) return false;
+        if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // Transient condition on non-blocking socket; retry after brief pause
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                continue;
+            }
+            return false;  // real error
+        }
+        if (n == 0) return false;  // unexpected zero-byte send
         sent += static_cast<size_t>(n);
     }
     return true;

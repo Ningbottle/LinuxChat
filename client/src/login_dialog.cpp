@@ -48,15 +48,17 @@ LoginDialog::LoginDialog(ChatClient* client, QWidget* parent)
     connect_timer_->setSingleShot(true);
     connect_timer_->setInterval(10000);  // 10 seconds
     connect(connect_timer_, &QTimer::timeout, this, [this]() {
-        if (!client_->is_connected()) {
-            // Only timeout/disconnect if we never got the connected signal
+        auto state = client_->socketState();
+        qDebug("[LoginDialog] connect timer timeout, state=%d, is_connected=%d", state, client_->is_connected());
+        if (state == QAbstractSocket::ConnectingState || state == QAbstractSocket::UnconnectedState) {
+            // Timeout only if still trying to connect or failed
             client_->disconnect_from_server();
             status_label_->setText(QStringLiteral("连接超时，请检查服务器地址和端口"));
             set_loading(false);
             login_btn_->setEnabled(false);
             register_btn_->setEnabled(false);
         }
-        // If already connected, do nothing (on_connected should have updated UI)
+        // If Connected, do nothing (on_connected should have updated UI and stopped timer)
     });
 
     // App-layer login/register response timeout (started on send, after TCP OK)
@@ -253,7 +255,9 @@ void LoginDialog::on_connect_clicked() {
 }
 
 void LoginDialog::on_login_clicked() {
-    if (username().isEmpty() || password().isEmpty()) {
+    QString user = username().trimmed();
+    QString pwd = password().trimmed();
+    if (user.isEmpty() || pwd.isEmpty()) {
         status_label_->setText(QStringLiteral("请输入用户名和密码"));
         return;
     }
@@ -264,11 +268,13 @@ void LoginDialog::on_login_clicked() {
 
     set_loading(true);
     login_timer_->start();
-    client_->send_login(username(), password());
+    client_->send_login(user, pwd);
 }
 
 void LoginDialog::on_register_clicked() {
-    if (username().isEmpty() || password().isEmpty()) {
+    QString user = username().trimmed();
+    QString pwd = password().trimmed();
+    if (user.isEmpty() || pwd.isEmpty()) {
         status_label_->setText(QStringLiteral("请输入用户名和密码"));
         return;
     }
@@ -279,7 +285,7 @@ void LoginDialog::on_register_clicked() {
 
     set_loading(true);
     login_timer_->start();
-    client_->send_register(username(), password());
+    client_->send_register(user, pwd);
 }
 
 void LoginDialog::on_login_ok(const QString& /*username*/) {
