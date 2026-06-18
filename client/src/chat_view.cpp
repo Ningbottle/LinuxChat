@@ -33,8 +33,8 @@ void ChatView::setup_ui() {
     scroll_widget_->setObjectName(QStringLiteral("messageContainer"));
 
     message_layout_ = new QVBoxLayout(scroll_widget_);
-    message_layout_->setContentsMargins(20, 12, 20, 12);  // per design spec for chat area
-    message_layout_->setSpacing(8);
+    message_layout_->setContentsMargins(20, 16, 20, 16);
+    message_layout_->setSpacing(10);
     message_layout_->addStretch(); // Push messages to top
 
     scroll_area_->setWidget(scroll_widget_);
@@ -44,21 +44,21 @@ void ChatView::setup_ui() {
     auto* input_frame = new QFrame;
     input_frame->setObjectName(QStringLiteral("inputArea"));
     auto* input_layout = new QHBoxLayout(input_frame);
-    input_layout->setContentsMargins(12, 8, 12, 12);
-    input_layout->setSpacing(8);
+    input_layout->setContentsMargins(16, 10, 16, 14);
+    input_layout->setSpacing(10);
 
     input_field_ = new QTextEdit;
     input_field_->setObjectName(QStringLiteral("inputField"));
     input_field_->setPlaceholderText(QStringLiteral("输入消息..."));
-    input_field_->setMaximumHeight(80);
-    input_field_->setMinimumHeight(40);
+    input_field_->setMaximumHeight(100);
+    input_field_->setMinimumHeight(44);
     input_field_->setTabChangesFocus(true);
     input_layout->addWidget(input_field_, 1);
 
     send_btn_ = new QPushButton(QStringLiteral("发送"));
     send_btn_->setObjectName(QStringLiteral("sendBtn"));
     send_btn_->setFixedWidth(80);
-    send_btn_->setFixedHeight(36);
+    send_btn_->setFixedHeight(38);
     input_layout->addWidget(send_btn_);
 
     outer->addWidget(input_frame);
@@ -68,9 +68,8 @@ void ChatView::setup_ui() {
 
     // Ctrl+Enter to send
     connect(input_field_, &QTextEdit::textChanged, this, [this]() {
-        // Auto-resize input field (min 40, max 80) - robust after send/clear
         int doc_height = input_field_->document()->size().height();
-        int target = qBound(40, doc_height + 12, 80);
+        int target = qBound(44, doc_height + 14, 100);
         input_field_->setFixedHeight(target);
     });
 }
@@ -154,7 +153,7 @@ QString ChatView::take_input() {
     QString text = input_field_->toPlainText().trimmed();
     if (!text.isEmpty()) {
         input_field_->clear();
-        input_field_->setFixedHeight(48);  // comfortable default after send, prevents shrinking too small
+        input_field_->setFixedHeight(48);
     }
     return text;
 }
@@ -172,8 +171,8 @@ QWidget* ChatView::create_bubble(const QString& username, const QString& content
                                      : QStringLiteral("bubbleOther"));
 
     auto* layout = new QVBoxLayout(container);
-    layout->setContentsMargins(10, 14, 10, 14);  // per design spec
-    layout->setSpacing(2);
+    layout->setContentsMargins(12, 14, 12, 14);
+    layout->setSpacing(4);
 
     // Username row
     auto* name_label = new QLabel(username);
@@ -210,12 +209,12 @@ QWidget* ChatView::create_bubble(const QString& username, const QString& content
     if (is_self) {
         wrapper_layout->addStretch();
         wrapper_layout->addWidget(container);
-        container->setMaximumWidth(360);
+        container->setMaximumWidth(400);
         wrapper_layout->addWidget(avatar);
     } else {
         wrapper_layout->addWidget(avatar);
         wrapper_layout->addWidget(container);
-        container->setMaximumWidth(360);
+        container->setMaximumWidth(400);
         wrapper_layout->addStretch();
     }
 

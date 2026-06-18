@@ -68,4 +68,6 @@ private:
     QTimer*      connect_timer_ = nullptr;
     // Separate timer for app-layer LOGIN/REGISTER response after TCP connected
     QTimer*      login_timer_   = nullptr;
+    // Re-entrancy guard: prevents multiple simultaneous connect attempts
+    bool         is_connecting_ = false;
 };

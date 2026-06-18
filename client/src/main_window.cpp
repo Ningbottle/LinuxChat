@@ -74,7 +74,7 @@ void MainWindow::setup_ui() {
 
     // Settings button always (disconnect moved here, with 退出登录)
     settings_btn_ = new QPushButton(QStringLiteral("⚙"));
-    settings_btn_->setFixedSize(24, 24);
+    settings_btn_->setFixedSize(30, 30);
     settings_btn_->setObjectName(QStringLiteral("settingsBtn"));
     settings_btn_->setFlat(true);
     top_bar->addWidget(settings_btn_);
@@ -83,13 +83,13 @@ void MainWindow::setup_ui() {
     if (testMode_) {
         // Custom blend min/close for test (融为一体)
         min_btn_ = new QPushButton(QStringLiteral("−"));
-        min_btn_->setFixedSize(24, 24);
+        min_btn_->setFixedSize(30, 30);
         min_btn_->setObjectName(QStringLiteral("titleBtn"));
         min_btn_->setFlat(true);
         top_bar->addWidget(min_btn_);
 
         close_btn_ = new QPushButton(QStringLiteral("×"));
-        close_btn_->setFixedSize(24, 24);
+        close_btn_->setFixedSize(30, 30);
         close_btn_->setObjectName(QStringLiteral("titleBtn"));
         close_btn_->setFlat(true);
         top_bar->addWidget(close_btn_);
@@ -126,7 +126,7 @@ void MainWindow::setup_ui() {
     auto* user_row = new QHBoxLayout;
     online_dot_ = new QLabel;
     online_dot_->setObjectName(QStringLiteral("onlineDot"));
-    online_dot_->setFixedSize(8, 8);
+    online_dot_->setFixedSize(10, 10);
     user_row->addWidget(online_dot_);
 
     user_label_ = new QLabel(my_username_);
@@ -387,16 +387,23 @@ void MainWindow::on_tab_send_requested() {
 void MainWindow::on_settings_clicked() {
     QDialog *dlg = new QDialog(this);
     dlg->setWindowTitle("设置");
-    dlg->setFixedSize(200, 150);
+    dlg->setFixedSize(280, 200);
     QVBoxLayout *lay = new QVBoxLayout(dlg);
-    lay->addWidget(new QLabel("用户设置"));
+    lay->setContentsMargins(20, 20, 20, 20);
+    lay->setSpacing(12);
+    QLabel *title = new QLabel("用户设置");
+    title->setStyleSheet("font-size: 16px; font-weight: 600; color: #1a1a1a;");
+    lay->addWidget(title);
+    lay->addSpacing(8);
     QPushButton *logoutBtn = new QPushButton("退出登录");
+    logoutBtn->setObjectName("dangerBtn");
     connect(logoutBtn, &QPushButton::clicked, this, [this, dlg]() {
         dlg->accept();
         emit returnToLoginRequested();
     });
     lay->addWidget(logoutBtn);
     QPushButton *closeBtn = new QPushButton("关闭");
+    closeBtn->setObjectName("secondaryBtn");
     connect(closeBtn, &QPushButton::clicked, dlg, &QDialog::reject);
     lay->addWidget(closeBtn);
     dlg->exec();

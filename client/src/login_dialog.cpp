@@ -32,6 +32,7 @@ LoginDialog::LoginDialog(ChatClient* client, QWidget* parent)
         // If dialog is still visible and user hasn't logged in yet,
         // show a friendly error message. Include root cause from ChatClient logs.
         if (isVisible()) {
+            is_connecting_ = false;
             connect_timer_->stop();
             login_timer_->stop();
             set_loading(false);
@@ -52,6 +53,7 @@ LoginDialog::LoginDialog(ChatClient* client, QWidget* parent)
         qDebug("[LoginDialog] connect timer timeout, state=%d, is_connected=%d", state, client_->is_connected());
         if (state == QAbstractSocket::ConnectingState || state == QAbstractSocket::UnconnectedState) {
             // Timeout only if still trying to connect or failed
+            is_connecting_ = false;
             client_->disconnect_from_server();
             status_label_->setText(QStringLiteral("连接超时，请检查服务器地址和端口"));
             set_loading(false);
@@ -240,6 +242,13 @@ void LoginDialog::drawGlobe(QPainter* painter) {
 // ── Slots ──────────────────────────────────────────────────────────
 
 void LoginDialog::on_connect_clicked() {
+    // Guard against re-entrant calls (rapid clicks, keyboard repeat, or
+    // signal re-entry caused by abort() inside connect_to_server()).
+    if (is_connecting_) {
+        qDebug("[LoginDialog] on_connect_clicked: already connecting, ignoring");
+        return;
+    }
+
     QString host = host_edit_->text().trimmed();
     quint16 port = static_cast<quint16>(port_edit_->text().toUShort());
 
@@ -248,6 +257,7 @@ void LoginDialog::on_connect_clicked() {
         return;
     }
 
+    is_connecting_ = true;
     status_label_->setText(QStringLiteral("正在连接..."));
     set_loading(true);
     connect_timer_->start();
@@ -303,6 +313,7 @@ void LoginDialog::on_error_received(const QString& code, const QString& content)
 }
 
 void LoginDialog::on_connected() {
+    is_connecting_ = false;
     connect_timer_->stop();
     set_loading(false);
     status_label_->setText(QStringLiteral("已连接到服务器"));
@@ -311,6 +322,7 @@ void LoginDialog::on_connected() {
 }
 
 void LoginDialog::on_connection_error(const QString& error) {
+    is_connecting_ = false;
     connect_timer_->stop();
     login_timer_->stop();
     set_loading(false);

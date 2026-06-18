@@ -29,12 +29,29 @@ ChatClient::ChatClient(QObject* parent)
 // ── Connection Management ──────────────────────────────────────────
 
 void ChatClient::connect_to_server(const QString& host, quint16 port) {
-    qDebug("[ChatClient] Connecting to %s:%d", qUtf8Printable(host), port);
+    qDebug("[ChatClient] Connecting to %s:%d (socket state=%d)",
+           qUtf8Printable(host), port, socket_->state());
     recv_buf_.clear();
+
+    // CRITICAL: Block socket signals BEFORE abort() to prevent the abort()
+    // from emitting errorOccurred/disconnected signals that would race with
+    // the new connectToHost() call.  Without this, abort() triggers handlers
+    // in LoginDialog that re-enable the connect button and stop the timeout
+    // timer, creating a window for re-entrant connect_to_server() calls that
+    // cause the server to see "recv n=0" (client FIN) immediately after accept.
+    socket_->blockSignals(true);
     if (socket_->state() != QAbstractSocket::UnconnectedState) {
         socket_->abort();
     }
     socket_->connectToHost(host, port);
+    socket_->blockSignals(false);
+
+    // If connectToHost() failed synchronously (e.g. bad host), Qt moves the
+    // socket to UnconnectedState without emitting connected().  In that case
+    // the connection_error signal must still be emitted so the UI can recover.
+    if (socket_->state() == QAbstractSocket::UnconnectedState) {
+        emit connection_error(socket_->errorString());
+    }
 }
 
 void ChatClient::disconnect_from_server() {
