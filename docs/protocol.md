@@ -67,6 +67,7 @@ send(fd, body.c_str(), body.size(), 0);
 | `BLACKLIST_ADD` | `from`, `to` | 将 `to` 加入黑名单 |
 | `BLACKLIST_RM` | `from`, `to` | 将 `to` 移出黑名单 |
 | `HISTORY_REQ` | `from`, `to`("__room__" 或用户名) | 请求历史消息 |
+| `PONG` | （无） | 心跳响应，收到 `PING` 后自动回复 |
 
 ### 服务端 → 客户端（S→C）
 
@@ -81,6 +82,7 @@ send(fd, body.c_str(), body.size(), 0);
 | `FRIEND_ACK` | `from`, `to`, `content` | 好友申请回应通知 |
 | `HISTORY_RESP` | `to`, `data`(消息数组) | 历史消息列表 |
 | `ERROR` | `code`, `content` | 错误通知 |
+| `PING` | （无） | 心跳包，客户端收到后应回复 `PONG` |
 
 ---
 
@@ -180,3 +182,20 @@ Alice                  Server                   Bob
   ]
 }
 ```
+
+## 心跳机制（PING/PONG）
+
+为防止 NAT 超时或防火墙导致连接假死，服务端每 **30 秒**向所有在线客户端发送心跳包：
+
+```
+Server                              Client
+  │                                   │
+  ├──PING{}──────────────────────────►│
+  │                                   │
+  │◄──────────────────────────────────┤ PONG{}
+```
+
+- 服务端使用 `timerfd` 定时器在 epoll 事件循环中触发，广播 `{"type":"PING"}` 给所有已认证客户端
+- 客户端收到 `PING` 后自动回复 `{"type":"PONG"}`
+- 服务端收到 `PONG` 后静默处理（不转发、不记录）
+- `PING`/`PONG` 消息体仅含 `type` 字段，无其他负载

@@ -21,6 +21,22 @@
 #include <cstring>
 #include <iostream>
 #include <algorithm>
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+
+/// Returns current time as "[YYYY-MM-DD HH:MM:SS.mmm]" for log lines.
+static std::string now_stamp() {
+    auto now = std::chrono::system_clock::now();
+    auto t   = std::chrono::system_clock::to_time_t(now);
+    auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(
+                   now.time_since_epoch()) % 1000;
+    std::ostringstream oss;
+    oss << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S")
+        << '.' << std::setfill('0') << std::setw(3) << ms.count();
+    return oss.str();
+}
 
 // ── Constructor / Destructor ───────────────────────────────────────
 
@@ -152,7 +168,7 @@ void EpollServer::run() {
     ev.data.fd = heartbeat_fd_;
     epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, heartbeat_fd_, &ev);
 
-    std::cout << "[Server] Listening on port " << port_ << "\n";
+    std::cout << now_stamp() << " [Server] Listening on port " << port_ << "\n";
 
     running_ = true;
 
@@ -164,7 +180,7 @@ void EpollServer::run() {
         int nfds = epoll_wait(epoll_fd_, events, MAX_EVENTS, -1);
         if (nfds < 0) {
             if (errno == EINTR) continue; // Interrupted by signal, retry
-            std::cerr << "[Server] epoll_wait error: " << strerror(errno) << "\n";
+            std::cerr << now_stamp() << " [Server] epoll_wait error: " << strerror(errno) << "\n";
             break;
         }
 
@@ -190,7 +206,7 @@ void EpollServer::run() {
         }
     }
 
-    std::cout << "[Server] Event loop exited.\n";
+    std::cout << now_stamp() << " [Server] Event loop exited.\n";
 }
 
 void EpollServer::stop() {
@@ -216,7 +232,7 @@ void EpollServer::handle_new_connection() {
                             SOCK_NONBLOCK | SOCK_CLOEXEC);
     if (client_fd < 0) {
         if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            std::cerr << "[Server] accept4 error: " << strerror(errno) << "\n";
+            std::cerr << now_stamp() << " [Server] accept4 error: " << strerror(errno) << "\n";
         }
         return;
     }
@@ -231,7 +247,7 @@ void EpollServer::handle_new_connection() {
     ev.events  = EPOLLIN | EPOLLRDHUP;
     ev.data.fd = client_fd;
     if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, client_fd, &ev) < 0) {
-        std::cerr << "[Server] epoll_ctl ADD for fd=" << client_fd
+        std::cerr << now_stamp() << " [Server] epoll_ctl ADD for fd=" << client_fd
                   << " failed: " << strerror(errno) << "\n";
         close(client_fd);
         return;
@@ -245,7 +261,7 @@ void EpollServer::handle_new_connection() {
 
     char ip_str[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, sizeof(ip_str));
-    std::cout << "[Server] New connection from " << ip_str
+    std::cout << now_stamp() << " [Server] New connection from " << ip_str
               << ":" << ntohs(client_addr.sin_port)
               << " (fd=" << client_fd << ")\n";
 }
@@ -266,7 +282,7 @@ void EpollServer::handle_client_event(int fd) {
 
     if (!msgs.has_value()) {
         // Connection closed or error (incl. oversized frame)
-        std::cout << "[Server] fd=" << fd << " recv_msgs returned nullopt -> removing client" << std::endl;
+        std::cout << now_stamp() << " [Server] fd=" << fd << " recv_msgs returned nullopt -> removing client" << std::endl;
         remove_client(fd);
         return;
     }
@@ -277,7 +293,7 @@ void EpollServer::handle_client_event(int fd) {
         if (!session->is_authenticated()) {
             std::string t = msg.value("type", std::string{});
             if (t == "LOGIN" || t == "REGISTER") {
-                std::cout << "[Server] Auth frame received fd=" << fd << " type=" << t << "\n";
+                std::cout << now_stamp() << " [Server] Auth frame received fd=" << fd << " type=" << t << "\n";
             }
         }
         if (on_message_) {
@@ -295,7 +311,7 @@ void EpollServer::handle_client_event(int fd) {
                 try {
                     on_message_(*sess_copy, msg);
                 } catch (const std::exception& e) {
-                    std::cerr << "[Server] Handler exception for fd=" << fd
+                    std::cerr << now_stamp() << " [Server] Handler exception for fd=" << fd
                               << ": " << e.what() << "\n";
                 }
             });
@@ -323,12 +339,12 @@ void EpollServer::remove_client(int fd) {
         try {
             on_disconnect_(*removed_session);
         } catch (const std::exception& e) {
-            std::cerr << "[Server] Disconnect handler exception: " << e.what() << "\n";
+            std::cerr << now_stamp() << " [Server] Disconnect handler exception: " << e.what() << "\n";
         }
     }
 
     if (removed_session) {
-        std::cout << "[Server] Client disconnected: "
+        std::cout << now_stamp() << " [Server] Client disconnected: "
                   << (removed_session->is_authenticated() ? removed_session->username : "(unauth)")
                   << " (fd=" << fd << ", gen=" << removed_session->generation << ")\n";
     }

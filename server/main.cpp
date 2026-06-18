@@ -18,6 +18,21 @@
 #include <unistd.h>
 #include <cstdlib>
 #include <iomanip>
+#include <chrono>
+#include <ctime>
+#include <sstream>
+
+/// Returns current time as "[YYYY-MM-DD HH:MM:SS.mmm]" for log lines.
+static std::string now_stamp() {
+    auto now = std::chrono::system_clock::now();
+    auto t   = std::chrono::system_clock::to_time_t(now);
+    auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(
+                   now.time_since_epoch()) % 1000;
+    std::ostringstream oss;
+    oss << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S")
+        << '.' << std::setfill('0') << std::setw(3) << ms.count();
+    return oss.str();
+}
 
 // ── Globals (for signal handler only) ───────────────────────────────
 
@@ -103,10 +118,10 @@ int main(int argc, char* argv[]) {
         server.run();
 
     } catch (const std::exception& e) {
-        std::cerr << "[Server] Fatal error: " << e.what() << "\n";
+        std::cerr << now_stamp() << " [Server] Fatal error: " << e.what() << "\n";
         return 1;
     }
 
-    std::cout << "[Server] Goodbye.\n";
+    std::cout << now_stamp() << " [Server] Goodbye.\n";
     return 0;
 }

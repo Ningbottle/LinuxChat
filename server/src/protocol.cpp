@@ -9,8 +9,23 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 namespace Protocol {
+
+/// Returns current time as "[YYYY-MM-DD HH:MM:SS]" for log lines.
+static std::string now_stamp() {
+    auto now = std::chrono::system_clock::now();
+    auto t   = std::chrono::system_clock::to_time_t(now);
+    auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(
+                   now.time_since_epoch()) % 1000;
+    std::ostringstream oss;
+    oss << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S")
+        << '.' << std::setfill('0') << std::setw(3) << ms.count();
+    return oss.str();
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -42,7 +57,7 @@ bool send_msg(int fd, const nlohmann::json& msg) {
     try {
         body = msg.dump();
     } catch (const std::exception& e) {
-        std::cerr << "[Protocol] JSON serialization error: " << e.what() << "\n";
+        std::cerr << now_stamp() << " [Protocol] JSON serialization error: " << e.what() << "\n";
         return false;
     }
 
@@ -80,14 +95,14 @@ std::optional<std::vector<nlohmann::json>> recv_msgs(ClientSession& session) {
         }
         if (n == 0) {
             // Connection closed by peer
-            std::cout << "[Protocol] fd=" << session.fd << " recv n=0 (peer closed from client side)" << std::endl;
+            std::cout << now_stamp() << " [Protocol] fd=" << session.fd << " recv n=0 (peer closed from client side)" << std::endl;
             return std::nullopt;
         }
         // n < 0
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             break;  // no more data right now; parse what we have
         }
-        std::cout << "[Protocol] fd=" << session.fd << " recv error: " << strerror(errno) << std::endl;
+        std::cout << now_stamp() << " [Protocol] fd=" << session.fd << " recv error: " << strerror(errno) << std::endl;
         return std::nullopt; // real error
     }
 
@@ -102,14 +117,14 @@ std::optional<std::vector<nlohmann::json>> recv_msgs(ClientSession& session) {
         uint32_t body_len = ntohl(net_len);
 
         // Debug: see what length prefix the client actually sent
-        std::cout << "[Protocol] fd=" << session.fd << " header body_len=" << body_len << std::endl;
+        std::cout << now_stamp() << " [Protocol] fd=" << session.fd << " header body_len=" << body_len << std::endl;
 
         // Guard against absurdly large messages (e.g. 16MB).
         // Close the connection: oversized claim is either attack or unrecoverable
         // desync. Drain logic above makes false positives from partials extremely
         // unlikely for valid small frames (LOGIN etc.).
         if (body_len > 16 * 1024 * 1024) {
-            std::cerr << "[Protocol] fd=" << session.fd
+            std::cerr << now_stamp() << " [Protocol] fd=" << session.fd
                       << " sent oversized frame (" << body_len << " bytes), dropping.\n";
             buf.clear();
             return std::nullopt;
@@ -127,7 +142,7 @@ std::optional<std::vector<nlohmann::json>> recv_msgs(ClientSession& session) {
         try {
             messages.push_back(nlohmann::json::parse(json_str));
         } catch (const nlohmann::json::parse_error& e) {
-            std::cerr << "[Protocol] fd=" << session.fd
+            std::cerr << now_stamp() << " [Protocol] fd=" << session.fd
                       << " JSON parse error: " << e.what() << "\n";
             // Skip malformed message, continue
         }

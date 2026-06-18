@@ -17,8 +17,21 @@
 #include <sstream>
 #include <iomanip>
 #include <ctime>
+#include <chrono>
 
 using json = nlohmann::json;
+
+/// Returns current time as "[YYYY-MM-DD HH:MM:SS.mmm]" for log lines.
+static std::string now_stamp() {
+    auto now = std::chrono::system_clock::now();
+    auto t   = std::chrono::system_clock::to_time_t(now);
+    auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(
+                   now.time_since_epoch()) % 1000;
+    std::ostringstream oss;
+    oss << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S")
+        << '.' << std::setfill('0') << std::setw(3) << ms.count();
+    return oss.str();
+}
 
 // ── Constructor ─────────────────────────────────────────────────────
 
@@ -111,7 +124,7 @@ void MessageRouter::finish_login(ClientSession& session, const std::string& user
     }
 
     Protocol::send_ok(session.fd, "LOGIN_OK", username);
-    std::cout << "[Handler] User logged in: " << username << "\n";
+    std::cout << now_stamp() << " [Handler] User logged in: " << username << "\n";
 
     // Push history + broadcast user list
     push_history(session.fd, username);
@@ -179,7 +192,7 @@ void MessageRouter::handle_register(ClientSession& session, const json& msg) {
     }
 
     std::string hash = sha256_hex(password);
-    std::cout << "[Auth] register hash for " << username
+    std::cout << now_stamp() << " [Auth] register hash for " << username
               << " len=" << hash.size() << std::endl;
 
     if (!db_.register_user(username, hash)) {
@@ -188,7 +201,7 @@ void MessageRouter::handle_register(ClientSession& session, const json& msg) {
     }
 
     // Registration successful: auto-login
-    std::cout << "[Handler] User registered: " << username << "\n";
+    std::cout << now_stamp() << " [Handler] User registered: " << username << "\n";
     finish_login(session, username);
 }
 
@@ -209,7 +222,7 @@ void MessageRouter::handle_login(ClientSession& session, const json& msg) {
     }
 
     std::string hash = sha256_hex(password);
-    std::cout << "[Auth] verify hash for " << username
+    std::cout << now_stamp() << " [Auth] verify hash for " << username
               << " len=" << hash.size() << std::endl;
 
     if (!db_.verify_user(username, hash)) {
@@ -232,7 +245,7 @@ void MessageRouter::handle_logout(ClientSession& session) {
         online_users_.erase(username);
     }
 
-    std::cout << "[Handler] User logged out: " << username << "\n";
+    std::cout << now_stamp() << " [Handler] User logged out: " << username << "\n";
 
     // Clear username before broadcast (so exclude works correctly)
     session.username.clear();

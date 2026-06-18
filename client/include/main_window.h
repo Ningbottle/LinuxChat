@@ -94,6 +94,9 @@ private:
     // Unread badge tracking: tab index -> unread count
     QMap<int, int> unread_counts_;
 
+    // Original tab text for restoring after badge clear
+    QMap<int, QString> original_tab_text_;
+
     /// Update the tab label with unread badge for a given tab index.
     void update_tab_badge(int tab_index);
 

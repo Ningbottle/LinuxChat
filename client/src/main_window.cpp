@@ -288,10 +288,18 @@ void MainWindow::on_private_received(const QString& from, const QString& to,
     ChatView* view = get_or_create_private_tab(other);
     view->append_message(from, content, timestamp, is_self);
 
-    // Switch to the private tab if not already there
     int idx = chat_tabs_->indexOf(view);
-    if (idx >= 0) {
+    if (idx < 0) return;
+
+    if (is_self) {
+        // Self message: switch to the tab so sender can see their own message
         chat_tabs_->setCurrentIndex(idx);
+    } else {
+        // Message from others: show unread badge if tab is not active
+        if (chat_tabs_->currentIndex() != idx) {
+            unread_counts_[idx]++;
+            update_tab_badge(idx);
+        }
     }
 }
 
@@ -439,6 +447,44 @@ void MainWindow::populateTestData() {
     }
 }
 
+// -- Unread Badge Management -------------------------------------------
+
+void MainWindow::update_tab_badge(int tab_index) {
+    int count = unread_counts_.value(tab_index, 0);
+    if (count <= 0) return;
+
+    // Store original text if not already stored
+    if (!original_tab_text_.contains(tab_index)) {
+        original_tab_text_[tab_index] = chat_tabs_->tabText(tab_index);
+    }
+
+    QString badge_text = (count > 99) ? QStringLiteral("99+") : QString::number(count);
+    QString tab_text = original_tab_text_[tab_index] + QStringLiteral(" [%1]").arg(badge_text);
+    chat_tabs_->setTabText(tab_index, tab_text);
+
+    // Set dynamic property for QSS styling
+    chat_tabs_->tabBar()->setTabData(tab_index, true);
+    chat_tabs_->tabBar()->style()->unpolish(chat_tabs_->tabBar());
+    chat_tabs_->tabBar()->style()->polish(chat_tabs_->tabBar());
+}
+
+void MainWindow::clear_tab_badge(int tab_index) {
+    if (!unread_counts_.contains(tab_index) || unread_counts_[tab_index] == 0) return;
+
+    unread_counts_[tab_index] = 0;
+
+    // Restore original text
+    if (original_tab_text_.contains(tab_index)) {
+        chat_tabs_->setTabText(tab_index, original_tab_text_[tab_index]);
+        original_tab_text_.remove(tab_index);
+    }
+
+    // Clear dynamic property
+    chat_tabs_->tabBar()->setTabData(tab_index, QVariant());
+    chat_tabs_->tabBar()->style()->unpolish(chat_tabs_->tabBar());
+    chat_tabs_->tabBar()->style()->polish(chat_tabs_->tabBar());
+}
+
 // -- Helpers ------------------------------------------------------------
 
 ChatView* MainWindow::get_or_create_private_tab(const QString& username) {
@@ -448,8 +494,11 @@ ChatView* MainWindow::get_or_create_private_tab(const QString& username) {
     }
 
     auto* view = new ChatView;
-    chat_tabs_->addTab(view, username);
+    int idx = chat_tabs_->addTab(view, username);
     private_views_[username] = view;
+
+    // Store original tab text for badge management
+    original_tab_text_[idx] = username;
 
     // Connect send signal for this private tab
     connect(view, &ChatView::send_requested,
