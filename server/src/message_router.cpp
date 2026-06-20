@@ -16,7 +16,6 @@
 #include <openssl/rand.h> // RAND_bytes for cryptographic salt generation
 #include <openssl/crypto.h> // CRYPTO_memcmp for timing-safe comparison
 
-#include <iostream>
 #include <sstream>
 #include <iomanip>
 #include <ctime>
@@ -115,8 +114,8 @@ int64_t MessageRouter::now_timestamp() {
     return static_cast<int64_t>(std::time(nullptr));
 }
 
-void MessageRouter::push_history(int fd, const std::string& /*username*/) {
-    auto room_history = db_.get_history("__room__", 20);
+void MessageRouter::push_history(int fd, const std::string& username) {
+    auto room_history = db_.get_history(username, "__room__", 20);
     json hist_msg = {
         {"type", "HISTORY_RESP"},
         {"to",   "__room__"},
@@ -161,7 +160,7 @@ void MessageRouter::cleanup_login_reservation(const std::string& username) {
     login_in_progress_.erase(username);
 }
 
-bool MessageRouter::is_rate_limited(const std::string& ip_address) const {
+bool MessageRouter::is_rate_limited(const std::string& ip_address) {
     std::lock_guard<std::mutex> lock(rate_limit_mutex_);
     auto it = login_attempts_.find(ip_address);
     if (it == login_attempts_.end()) return false;
@@ -216,7 +215,7 @@ void MessageRouter::finish_login(ClientSession& session, const std::string& user
     }
 
     Protocol::send_ok(session.fd, "LOGIN_OK", username);
-    std::cout << now_stamp() << " [Handler] User logged in: " << username << "\n";
+    spdlog::info("[Handler] User logged in: {}", username);
 
     // Push history + broadcast user list
     push_history(session.fd, username);
@@ -308,8 +307,7 @@ void MessageRouter::handle_register(ClientSession& session, const json& msg) {
     session.set_pending_login(username);
 
     std::string hash = hash_password(password);
-    std::cout << now_stamp() << " [Auth] register hash for " << username
-              << " len=" << hash.size() << std::endl;
+    spdlog::info("[Auth] register hash for {} len={}", username, hash.size());
 
     if (!db_.register_user(username, hash)) {
         {
@@ -322,7 +320,7 @@ void MessageRouter::handle_register(ClientSession& session, const json& msg) {
     }
 
     // Registration successful: auto-login
-    std::cout << now_stamp() << " [Handler] User registered: " << username << "\n";
+    spdlog::info("[Handler] User registered: {}", username);
     finish_login(session, username);
     session.clear_pending_login();
     {
@@ -381,8 +379,7 @@ void MessageRouter::handle_login(ClientSession& session, const json& msg) {
     // Verify password (outside login_mutex_ to avoid holding it during DB I/O)
     // Use salted verification: get stored hash, then verify with salt
     std::string stored_hash = db_.get_stored_hash(username);
-    std::cout << now_stamp() << " [Auth] verify password for " << username
-              << " stored_hash_len=" << stored_hash.size() << std::endl;
+    spdlog::info("[Auth] verify password for {} stored_hash_len={}", username, stored_hash.size());
 
     if (stored_hash.empty() || !verify_password(password, stored_hash)) {
         // Record failed login attempt for rate limiting
@@ -424,7 +421,7 @@ void MessageRouter::handle_logout(ClientSession& session) {
         online_users_.erase(username);
     }
 
-    std::cout << now_stamp() << " [Handler] User logged out: " << username << "\n";
+    spdlog::info("[Handler] User logged out: {}", username);
 
     // Clear username before broadcast (so exclude works correctly)
     session.clear_username();
@@ -525,7 +522,7 @@ void MessageRouter::handle_private(ClientSession& session, const json& msg) {
 void MessageRouter::handle_history_req(ClientSession& session, const json& msg) {
     std::string to = msg.value("to", "__room__");
 
-    auto history = db_.get_history(to, 50);
+    auto history = db_.get_history(session.get_username(), to, 50);
 
     json resp = {
         {"type", "HISTORY_RESP"},

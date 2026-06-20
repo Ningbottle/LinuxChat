@@ -13,7 +13,6 @@
 #include "message_router.h"
 #include "log_utils.h"
 
-#include <iostream>
 #include <string>
 #include <csignal>
 #include <unistd.h>
@@ -57,11 +56,11 @@ static Config parse_args(int argc, char* argv[]) {
         } else if ((arg == "--db" || arg == "-d") && i + 1 < argc) {
             cfg.db_path = argv[++i];
         } else if (arg == "--help" || arg == "-h") {
-            std::cout << "Usage: linuxchat_server [options]\n"
-                      << "  --port, -p <port>      TCP port (default: 8080)\n"
-                      << "  --workers, -w <num>    Worker threads (default: 4)\n"
-                      << "  --db, -d <path>        Database path (default: linuxchat.db)\n"
-                      << "  --help, -h             Show this help\n";
+            fmt::print("Usage: linuxchat_server [options]\n"
+                       "  --port, -p <port>      TCP port (default: 8080)\n"
+                       "  --workers, -w <num>    Worker threads (default: 4)\n"
+                       "  --db, -d <path>        Database path (default: linuxchat.db)\n"
+                       "  --help, -h             Show this help\n");
             exit(0);
         }
     }
@@ -71,15 +70,16 @@ static Config parse_args(int argc, char* argv[]) {
 // ── Entry Point ────────────────────────────────────────────────────
 
 int main(int argc, char* argv[]) {
+    init_logger();
     Config cfg = parse_args(argc, argv);
 
-    std::cout << "╔══════════════════════════════════════════╗\n"
-              << "║        LinuxChat Server v1.0             ║\n"
-              << "╠══════════════════════════════════════════╣\n"
-              << "║  Port:    " << std::setw(30) << cfg.port    << " ║\n"
-              << "║  Workers: " << std::setw(30) << cfg.workers << " ║\n"
-              << "║  DB:      " << std::setw(30) << cfg.db_path << " ║\n"
-              << "╚══════════════════════════════════════════╝\n";
+    spdlog::info("╔══════════════════════════════════════════╗");
+    spdlog::info("║        LinuxChat Server v1.0             ║");
+    spdlog::info("╠══════════════════════════════════════════╣");
+    spdlog::info("║  Port:    {:>30} ║", cfg.port);
+    spdlog::info("║  Workers: {:>30} ║", cfg.workers);
+    spdlog::info("║  DB:      {:>30} ║", cfg.db_path);
+    spdlog::info("╚══════════════════════════════════════════╝");
 
     try {
         Database db(cfg.db_path);
@@ -117,10 +117,10 @@ int main(int argc, char* argv[]) {
         server.run();
 
     } catch (const std::exception& e) {
-        std::cerr << now_stamp() << " [Server] Fatal error: " << e.what() << "\n";
+        spdlog::error("[Server] Fatal error: {}", e.what());
         return 1;
     }
 
-    std::cout << now_stamp() << " [Server] Goodbye.\n";
+    spdlog::info("[Server] Goodbye.");
     return 0;
 }

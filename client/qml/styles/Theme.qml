@@ -1,36 +1,35 @@
+pragma Singleton
 import QtQuick
 
 QtObject {
     id: theme
 
-    property string currentSkin: "Minimal"
+    property string currentSkin: "Glass"
 
     // ── Skin data tables ──
 
     property var _d: {
-        "Minimal": {
-            canvas: "#FFFFFF", surface: "#FAFAFA", text: "#1A1A1A",
-            muted: "#8E8E93", subtle: "#AEAEB2", border: "#E5E5EA",
-            accent: "#8E8E93", accentHover: "#636366",
-            success: "#34C759", warning: "#F0B232", danger: "#ED4245",
-            bubbleSelf: "#F0F0F0", bubbleOther: "transparent",
-            bubbleSelfText: "#1A1A1A", bubbleOtherText: "#1A1A1A"
+        "Glass": {
+            canvas: "#F4F4F9", surface: "rgba(255, 255, 255, 0.75)", text: "#1E1E24",
+            muted: "#6B7280", subtle: "#9CA3AF", border: "rgba(255, 255, 255, 0.9)",
+            accent: "#4F46E5", accentHover: "#4338CA",
+            success: "#10B981", warning: "#F59E0B", danger: "#EF4444",
+            bubbleSelf: "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4F46E5, stop:1 #6366F1)", bubbleOther: "rgba(255, 255, 255, 0.9)",
+            bubbleSelfText: "#FFFFFF", bubbleOtherText: "#1E1E24",
+            sidebarBg: "rgba(255, 255, 255, 0.4)",
+            sidebarActive: "rgba(255, 255, 255, 0.8)",
+            sidebarHover: "rgba(255, 255, 255, 0.6)"
         },
-        "Dense": {
-            canvas: "#F0F0F5", surface: "#FFFFFF", text: "#1A1A2E",
-            muted: "#5A5A72", subtle: "#9292A8", border: "#E2E2EA",
-            accent: "#5865F2", accentHover: "#4752C4",
-            success: "#23A559", warning: "#F0B232", danger: "#ED4245",
-            bubbleSelf: "#DDE3FF", bubbleOther: "#FFFFFF",
-            bubbleSelfText: "#1A1A2E", bubbleOtherText: "#1A1A2E"
-        },
-        "Motion": {
-            canvas: "#E8E8EC", surface: "rgba(255,255,255,0.55)", text: "#1C1C1E",
-            muted: "#636366", subtle: "#AEAEB2", border: "rgba(255,255,255,0.60)",
-            accent: "#4A6CF7", accentHover: "#3B5DE7",
-            success: "#34C759", warning: "#F0B232", danger: "#FF3B30",
-            bubbleSelf: "rgba(74,108,247,0.88)", bubbleOther: "rgba(255,255,255,0.70)",
-            bubbleSelfText: "#FFFFFF", bubbleOtherText: "#1C1C1E"
+        "Clean": {
+            canvas: "#FFFFFF", surface: "#F9FAFB", text: "#111827",
+            muted: "#6B7280", subtle: "#9CA3AF", border: "#E5E7EB",
+            accent: "#000000", accentHover: "#374151",
+            success: "#10B981", warning: "#F59E0B", danger: "#EF4444",
+            bubbleSelf: "#111827", bubbleOther: "#F3F4F6",
+            bubbleSelfText: "#FFFFFF", bubbleOtherText: "#111827",
+            sidebarBg: "#F9FAFB",
+            sidebarActive: "#E5E7EB",
+            sidebarHover: "#F3F4F6"
         },
         "iMessage": {
             canvas: "#FFFFFF", surface: "#FFFFFF", text: "#000000",
@@ -38,53 +37,51 @@ QtObject {
             accent: "#007AFF", accentHover: "#0056CC",
             success: "#34C759", warning: "#FF9500", danger: "#FF3B30",
             bubbleSelf: "#007AFF", bubbleOther: "#E9E9EB",
-            bubbleSelfText: "#FFFFFF", bubbleOtherText: "#000000"
+            bubbleSelfText: "#FFFFFF", bubbleOtherText: "#000000",
+            sidebarBg: "#F2F2F7",
+            sidebarActive: "#E5E5EA",
+            sidebarHover: "#E5E5EA"
         }
     }
 
     property var _f: {
-        "Minimal":  { body: "LXGW WenKai", bodySize: 14, title: "Newsreader", titleSize: 16, mono: "Cascadia Code", monoSize: 13, caption: "LXGW WenKai", captionSize: 11 },
-        "Dense":    { body: "LXGW WenKai", bodySize: 12, title: "LXGW WenKai", titleSize: 14, mono: "Cascadia Code", monoSize: 11, caption: "LXGW WenKai", captionSize: 10 },
-        "Motion":   { body: "LXGW WenKai", bodySize: 14, title: "Newsreader", titleSize: 18, mono: "Cascadia Code", monoSize: 13, caption: "LXGW WenKai", captionSize: 11 },
+        "Glass":    { body: "LXGW WenKai", bodySize: 14, title: "LXGW WenKai", titleSize: 18, mono: "Cascadia Code", monoSize: 13, caption: "LXGW WenKai", captionSize: 11 },
+        "Clean":    { body: "LXGW WenKai", bodySize: 14, title: "LXGW WenKai", titleSize: 16, mono: "Cascadia Code", monoSize: 13, caption: "LXGW WenKai", captionSize: 11 },
         "iMessage": { body: "LXGW WenKai", bodySize: 15, title: "LXGW WenKai", titleSize: 16, mono: "Cascadia Code", monoSize: 13, caption: "LXGW WenKai", captionSize: 11 }
     }
 
     property var _s: {
-        "Minimal":  { xs: 4, sm: 8,  md: 12, lg: 16, xl: 24 },
-        "Dense":    { xs: 2, sm: 4,  md: 8,  lg: 12, xl: 16 },
-        "Motion":   { xs: 4, sm: 8,  md: 14, lg: 20, xl: 28 },
+        "Glass":    { xs: 6, sm: 10, md: 16, lg: 24, xl: 32 },
+        "Clean":    { xs: 4, sm: 8,  md: 12, lg: 16, xl: 24 },
         "iMessage": { xs: 4, sm: 8,  md: 12, lg: 16, xl: 20 }
     }
 
     property var _r: {
-        "Minimal":  { sm: 4,  md: 8,  lg: 12, full: 9999 },
-        "Dense":    { sm: 4,  md: 10, lg: 12, full: 9999 },
-        "Motion":   { sm: 8,  md: 14, lg: 16, full: 9999 },
+        "Glass":    { sm: 8,  md: 16, lg: 24, full: 9999 },
+        "Clean":    { sm: 4,  md: 8,  lg: 12, full: 9999 },
         "iMessage": { sm: 8,  md: 14, lg: 18, full: 9999 }
     }
 
     property var _b: {
-        "Minimal":  { maxWidth: 400, paddingH: 12, paddingV: 14, radius: 4 },
-        "Dense":    { maxWidth: 480, paddingH: 10, paddingV: 10, radius: 10 },
-        "Motion":   { maxWidth: 420, paddingH: 14, paddingV: 14, radius: 16 },
-        "iMessage": { maxWidth: 280, paddingH: 12, paddingV: 10, radius: 18 }
+        "Glass":    { maxWidth: 420, paddingH: 16, paddingV: 12, radius: 16 },
+        "Clean":    { maxWidth: 400, paddingH: 14, paddingV: 12, radius: 12 },
+        "iMessage": { maxWidth: 280, paddingH: 14, paddingV: 10, radius: 18 }
     }
 
     property var _a: {
-        "Minimal":  { size: 28 },
-        "Dense":    { size: 36 },
-        "Motion":   { size: 44 },
-        "iMessage": { size: 40 }
+        "Glass":    { size: 44 },
+        "Clean":    { size: 40 },
+        "iMessage": { size: 36 }
     }
 
     // ── Token accessors ──
 
-    property var colors: _d[currentSkin] || _d["Minimal"]
-    property var fonts:  _f[currentSkin] || _f["Minimal"]
-    property var space:  _s[currentSkin] || _s["Minimal"]
-    property var radius: _r[currentSkin] || _r["Minimal"]
-    property var bubble: _b[currentSkin] || _b["Minimal"]
-    property var avatar: _a[currentSkin] || _a["Minimal"]
+    property var colors: _d[currentSkin] || _d["Glass"]
+    property var fonts:  _f[currentSkin] || _f["Glass"]
+    property var space:  _s[currentSkin] || _s["Glass"]
+    property var radius: _r[currentSkin] || _r["Glass"]
+    property var bubble: _b[currentSkin] || _b["Glass"]
+    property var avatar: _a[currentSkin] || _a["Glass"]
 
     function setSkin(name) {
         if (_d[name] !== undefined) {
@@ -92,5 +89,5 @@ QtObject {
         }
     }
 
-    property var skinNames: ["Minimal", "Dense", "Motion", "iMessage"]
+    property var skinNames: ["Glass", "Clean", "iMessage"]
 }

@@ -20,7 +20,6 @@
 #include <signal.h>
 
 #include <cstring>
-#include <iostream>
 #include <algorithm>
 #include <chrono>
 #include <ctime>
@@ -154,7 +153,7 @@ void EpollServer::run() {
     ev.data.fd = heartbeat_fd_;
     epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, heartbeat_fd_, &ev);
 
-    std::cout << now_stamp() << " [Server] Listening on port " << port_ << "\n";
+    spdlog::info("[Server] Listening on port {}", port_);
 
     running_ = true;
 
@@ -166,7 +165,7 @@ void EpollServer::run() {
         int nfds = epoll_wait(epoll_fd_, events, MAX_EVENTS, -1);
         if (nfds < 0) {
             if (errno == EINTR) continue; // Interrupted by signal, retry
-            std::cerr << now_stamp() << " [Server] epoll_wait error: " << strerror(errno) << "\n";
+            spdlog::error("[Server] epoll_wait error: {}", strerror(errno));
             break;
         }
 
@@ -192,7 +191,7 @@ void EpollServer::run() {
         }
     }
 
-    std::cout << now_stamp() << " [Server] Event loop exited.\n";
+    spdlog::info("[Server] Event loop exited.");
 }
 
 void EpollServer::stop() {
@@ -212,47 +211,47 @@ void EpollServer::handle_new_connection() {
     struct sockaddr_in client_addr{};
     socklen_t addr_len = sizeof(client_addr);
 
-    int client_fd = accept4(listen_fd_,
-                            reinterpret_cast<struct sockaddr*>(&client_addr),
-                            &addr_len,
-                            SOCK_NONBLOCK | SOCK_CLOEXEC);
-    if (client_fd < 0) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            std::cerr << now_stamp() << " [Server] accept4 error: " << strerror(errno) << "\n";
+    while (true) {
+        int client_fd = accept4(listen_fd_,
+                                reinterpret_cast<struct sockaddr*>(&client_addr),
+                                &addr_len,
+                                SOCK_NONBLOCK | SOCK_CLOEXEC);
+        if (client_fd < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                break; // All pending connections accepted
+            }
+            spdlog::error("[Server] accept4 error: {}", strerror(errno));
+            break;
         }
-        return;
+
+        // Create session
+        uint64_t gen = next_generation_++;
+        auto session = std::make_shared<ClientSession>(client_fd);
+        session->generation = gen;
+
+        // Store client IP for rate limiting
+        char ip_str[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, sizeof(ip_str));
+        session->ip_address = ip_str;
+
+        // Register with epoll
+        struct epoll_event ev{};
+        ev.events  = EPOLLIN | EPOLLRDHUP;
+        ev.data.fd = client_fd;
+        if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, client_fd, &ev) < 0) {
+            spdlog::error("[Server] epoll_ctl ADD for fd={} failed: {}", client_fd, strerror(errno));
+            close(client_fd);
+            continue;
+        }
+
+        // Store session
+        {
+            std::lock_guard<std::mutex> lock(sessions_mutex_);
+            sessions_[client_fd] = std::move(session);
+        }
+
+        spdlog::info("[Server] New connection from {}:{} (fd={})", ip_str, ntohs(client_addr.sin_port), client_fd);
     }
-
-    // Create session
-    uint64_t gen = next_generation_++;
-    auto session = std::make_shared<ClientSession>(client_fd);
-    session->generation = gen;
-
-    // Store client IP for rate limiting
-    char ip_str[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, sizeof(ip_str));
-    session->ip_address = ip_str;
-
-    // Register with epoll
-    struct epoll_event ev{};
-    ev.events  = EPOLLIN | EPOLLRDHUP;
-    ev.data.fd = client_fd;
-    if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, client_fd, &ev) < 0) {
-        std::cerr << now_stamp() << " [Server] epoll_ctl ADD for fd=" << client_fd
-                  << " failed: " << strerror(errno) << "\n";
-        close(client_fd);
-        return;
-    }
-
-    // Store session
-    {
-        std::lock_guard<std::mutex> lock(sessions_mutex_);
-        sessions_[client_fd] = std::move(session);
-    }
-
-    std::cout << now_stamp() << " [Server] New connection from " << ip_str
-              << ":" << ntohs(client_addr.sin_port)
-              << " (fd=" << client_fd << ")\n";
 }
 
 void EpollServer::handle_client_event(int fd) {
@@ -271,7 +270,7 @@ void EpollServer::handle_client_event(int fd) {
 
     if (!msgs.has_value()) {
         // Connection closed or error (incl. oversized frame)
-        std::cout << now_stamp() << " [Server] fd=" << fd << " recv_msgs returned nullopt -> removing client" << std::endl;
+        spdlog::info("[Server] fd={} recv_msgs returned nullopt -> removing client", fd);
         remove_client(fd);
         return;
     }
@@ -282,7 +281,7 @@ void EpollServer::handle_client_event(int fd) {
         if (!session->is_authenticated()) {
             std::string t = msg.value("type", std::string{});
             if (t == "LOGIN" || t == "REGISTER") {
-                std::cout << now_stamp() << " [Server] Auth frame received fd=" << fd << " type=" << t << "\n";
+                spdlog::info("[Server] Auth frame received fd={} type={}", fd, t);
             }
         }
         if (on_message_) {
@@ -300,8 +299,7 @@ void EpollServer::handle_client_event(int fd) {
                 try {
                     on_message_(*sess_copy, msg);
                 } catch (const std::exception& e) {
-                    std::cerr << now_stamp() << " [Server] Handler exception for fd=" << fd
-                              << ": " << e.what() << "\n";
+                    spdlog::error("[Server] Handler exception for fd={}: {}", fd, e.what());
                 }
             });
         }
@@ -311,8 +309,7 @@ void EpollServer::handle_client_event(int fd) {
 void EpollServer::remove_client(int fd) {
     // Remove from epoll (EBADF is harmless — fd may already be invalid)
     if (epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) < 0 && errno != EBADF) {
-        std::cerr << now_stamp() << " [Server] epoll_ctl DEL for fd=" << fd
-                  << " failed: " << strerror(errno) << "\n";
+        spdlog::error("[Server] epoll_ctl DEL for fd={} failed: {}", fd, strerror(errno));
     }
 
     std::shared_ptr<ClientSession> removed_session;
@@ -337,14 +334,12 @@ void EpollServer::remove_client(int fd) {
         try {
             on_disconnect_(*removed_session);
         } catch (const std::exception& e) {
-            std::cerr << now_stamp() << " [Server] Disconnect handler exception: " << e.what() << "\n";
+            spdlog::error("[Server] Disconnect handler exception: {}", e.what());
         }
     }
 
     if (removed_session) {
-        std::cout << now_stamp() << " [Server] Client disconnected: "
-                  << (removed_session->is_authenticated() ? removed_session->get_username() : "(unauth)")
-                  << " (fd=" << fd << ", gen=" << removed_session->generation << ")\n";
+        spdlog::info("[Server] Client disconnected: {} (fd={}, gen={})", (removed_session->is_authenticated() ? removed_session->get_username() : "(unauth)"), fd, removed_session->generation);
 
         // shutdown() makes in-flight send() calls fail immediately with EPIPE,
         // preventing them from writing to a reused fd. The actual close(fd)

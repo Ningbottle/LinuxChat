@@ -48,6 +48,9 @@ QHash<int, QByteArray> MessageModel::roleNames() const
 void MessageModel::addMessage(const QString& sender, const QString& content,
                               const QString& timestamp, bool isSelf)
 {
+    fprintf(stderr, "[MessageModel] addMessage sender='%s' isSelf=%d\n",
+            sender.toUtf8().constData(), isSelf);
+    fflush(stderr);
     beginInsertRows(QModelIndex(), m_messages.size(), m_messages.size());
     m_messages.append({sender, content, timestamp, isSelf});
     endInsertRows();
@@ -72,6 +75,9 @@ void MessageModel::clear()
 
 void MessageModel::loadFromJsonArray(const QJsonArray& messages, const QString& myUsername)
 {
+    fprintf(stderr, "[MessageModel] loadFromJsonArray count=%d myUsername='%s'\n",
+            messages.size(), myUsername.toUtf8().constData());
+    fflush(stderr);
     beginResetModel();
     m_messages.clear();
     for (const auto& msgVal : messages) {
@@ -83,6 +89,9 @@ void MessageModel::loadFromJsonArray(const QJsonArray& messages, const QString& 
         item.timestamp = QDateTime::fromSecsSinceEpoch(ts).toString("hh:mm:ss");
         item.isSelf = (item.sender == myUsername);
         item.messageType = "normal";
+        fprintf(stderr, "[MessageModel]   sender='%s' myUsername='%s' isSelf=%d\n",
+                item.sender.toUtf8().constData(), myUsername.toUtf8().constData(), item.isSelf);
+        fflush(stderr);
         m_messages.append(item);
     }
     endResetModel();

@@ -11,9 +11,9 @@ The repository uses Chat-Driven Development (CDD): `README.md` is the runbook en
 - **Languages**: C++17, QML, QSS, Markdown, small Python smoke scripts.
 - **Frameworks**: Linux epoll, Qt6 Widgets, optional Qt6 Qml/Quick/QuickControls2 scaffold, Google Test.
 - **Key Libraries**: SQLite3, OpenSSL EVP SHA-256, nlohmann::json, Qt Network, Qt Svg.
-- **Architecture**: Windows desktop client -> JSON-over-TCP frames -> Linux epoll server -> worker-thread message routing -> SQLite WAL persistence.
+- **Architecture**: Windows desktop client -> JSON-over-TCP frames -> Remote Linux host epoll server -> worker-thread message routing -> SQLite WAL persistence.
 - **Protocol**: 4-byte big-endian length prefix + UTF-8 JSON body, 256KB max frame, heartbeat `PING`/`PONG`.
-- **Current UI State**: Widgets runtime with Chinese Ink QSS theme; `--test-chat` bypass mode remains available for fast UI iteration.
+- **Current UI State**: Widgets runtime with Modern Gray Light theme + QML SplitView migration underway.
 - **Active Work**: `TODO.md` Step 10, Critical architecture fixes + frontend Phase 2 complete. QSS fully rewritten as Dark Slate + Indigo theme.
 - **CDD Mode**: Single `docs/INDEX.md`; no `docs/index/` split is active.
 
@@ -112,7 +112,7 @@ flowchart TB
 | `client/include/user_model.h` | QML online-user model. | 28 | `Q_PROPERTY count`, `setUsers` |
 | `client/src/user_model.cpp` | User model role/data implementation. | 38 | `UsernameRole`, `countChanged` |
 | `client/qml/main.qml` | Minimal QML pipeline placeholder. | 30 | `ApplicationWindow`, scaffold status |
-| `client/resources/style.qss` | Current Widgets theme stylesheet. | 577 | Chinese Ink theme, objectName selectors |
+| `client/resources/style.qss` | Current Widgets theme stylesheet. | 577 | Dark Slate + Indigo theme, objectName selectors |
 | `client/resources/resources.qrc` | Qt resource manifest. | 10 | fonts, SVGs, `style.qss` |
 | `client/CMakeLists.txt` | Client build target with optional QML module. | 67 | `HAS_QML`, `qt_add_qml_module`, Qt Widgets/Network/Svg |
 
@@ -192,7 +192,7 @@ flowchart LR
 - **Room history**: Broadcast messages stored with `to="__room__"`.
 - **Widgets runtime**: The current Qt Widgets application path started by `client/main.cpp`.
 - **QML scaffold**: Optional build-time QML module and C++ facade/models that are not yet the runtime UI.
-- **Chinese Ink theme**: Current QSS visual direction in `client/resources/style.qss`.
+- **Dark Slate + Indigo theme**: Current QSS visual direction in `client/resources/style.qss`.
 
 ## Recent Documentation
 
@@ -208,7 +208,7 @@ flowchart LR
 
 - **Lines of Code (App/Tests)**: App text LOC 3,958; tests LOC 1,401; vendored JSON and binary assets excluded.
 - **Scanned Text Files**: 60 source, test, doc, and script files.
-- **Last Commit Msg**: `feat: 水墨国风 (Chinese Ink) theme design`
+- **Last Commit Msg**: `feat: Dark Slate + Indigo theme design`
 - **Timestamp**: 2026-06-19 Asia/Taipei
 - **LLM Model**: Claude Fable 5
 - **Grade**: 11.7/12

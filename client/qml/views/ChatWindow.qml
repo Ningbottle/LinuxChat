@@ -1,161 +1,407 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
+import "../styles"
+import "../components"
 
 Rectangle {
-    color: "#F5F5F5"
+    color: Theme.colors.canvas
 
-    RowLayout {
-        anchors.fill: parent; spacing: 0
+    SplitView {
+        id: splitView
+        anchors.fill: parent
+        orientation: Qt.Horizontal
+
+        // Custom resizable handle styling (wider for easier grabbing)
+        handle: Rectangle {
+            implicitWidth: 6
+            color: "transparent"
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: 2
+                height: parent.height
+                color: SplitHandle.pressed ? Theme.colors.accent : (SplitHandle.hovered ? Theme.colors.accentHover : "transparent")
+                
+                Behavior on color { ColorAnimation { duration: 150 } }
+            }
+
+            // Little pill indicator like HTML
+            Rectangle {
+                anchors.centerIn: parent
+                width: 4
+                height: 40
+                radius: 2
+                color: Theme.colors.border
+                opacity: SplitHandle.pressed || SplitHandle.hovered ? 0.8 : 0.0
+                Behavior on opacity { NumberAnimation { duration: 150 } }
+            }
+        }
 
         // Sidebar
         Rectangle {
-            Layout.preferredWidth: 260; Layout.fillHeight: true; color: "#FAFAFA"
+            id: sidebarItem
+            SplitView.preferredWidth: 280
+            SplitView.minimumWidth: 200
+            SplitView.maximumWidth: 500
+            color: Theme.colors.sidebarBg
+
+            // Subtle inner border for glass effect
+            Rectangle {
+                anchors.right: parent.right
+                width: 1
+                height: parent.height
+                color: Theme.colors.border
+            }
 
             ColumnLayout {
-                anchors.fill: parent; spacing: 0
+                anchors.fill: parent
+                spacing: 0
 
-                // User header
+                // App Header & Search
                 Rectangle {
-                    Layout.fillWidth: true; Layout.preferredHeight: 56; color: "#F0F0F0"
-                    RowLayout {
-                        anchors.fill: parent; anchors.margins: 12; spacing: 10
-                        Rectangle {
-                            Layout.preferredWidth: 32; Layout.preferredHeight: 32; radius: 16; color: "#7C8CF0"
-                            Text { anchors.centerIn: parent; text: chatBackend.currentUser ? chatBackend.currentUser.charAt(0).toUpperCase() : "U"; color: "#FFF"; font.pixelSize: 14; font.bold: true }
-                        }
-                        Column {
-                            spacing: 2
-                            Text { text: chatBackend.currentUser || "用户"; font.pixelSize: 14; font.bold: true; color: "#1A1A1A" }
-                            Text { text: "在线"; font.pixelSize: 11; color: "#34C759" }
-                        }
-                        Item { Layout.fillWidth: true }
-                    }
-                }
-
-                // Online users
-                Rectangle {
-                    Layout.fillWidth: true; Layout.preferredHeight: 28; color: "transparent"
-                    RowLayout {
-                        anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12
-                        Text { text: "在线用户"; font.pixelSize: 11; font.bold: true; color: "#8E8E93" }
-                        Item { Layout.fillWidth: true }
-                    }
-                }
-
-                ListView {
-                    Layout.fillWidth: true; Layout.fillHeight: true; clip: true; model: chatBackend.onlineUsers
-                    delegate: Rectangle {
-                        width: parent.width; height: 34; color: "transparent"
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 120
+                    color: "transparent"
+                    
+                    ColumnLayout {
+                        anchors.fill: parent; anchors.margins: Theme.space.md; spacing: Theme.space.md
+                        
                         RowLayout {
-                            anchors.fill: parent; anchors.margins: 10; spacing: 8
-                            Rectangle {
-                                Layout.preferredWidth: 22; Layout.preferredHeight: 22; radius: 11; color: "#6EB5A6"
-                                Text { anchors.centerIn: parent; text: (model.username || "?").charAt(0).toUpperCase(); color: "#FFF"; font.pixelSize: 9; font.bold: true }
+                            Text {
+                                text: "LinuxChat"
+                                font.family: Theme.fonts.title
+                                font.pixelSize: Theme.fonts.titleSize * 1.2
+                                font.weight: Font.Bold
+                                color: Theme.colors.text
                             }
-                            Text { text: model.username || ""; font.pixelSize: 13; color: "#1A1A1A" }
                             Item { Layout.fillWidth: true }
                         }
+                        
+                        // Search Box
+                        Rectangle {
+                            Layout.fillWidth: true; Layout.preferredHeight: 36
+                            radius: 10
+                            color: Qt.rgba(0,0,0,0.04)
+                            border.width: 1.5; border.color: Qt.rgba(0,0,0,0.06)
+                            
+                            RowLayout {
+                                anchors.fill: parent; anchors.leftMargin: Theme.space.sm; anchors.rightMargin: Theme.space.sm; spacing: Theme.space.xs
+                                Text { text: "🔍"; font.pixelSize: 14; color: Theme.colors.muted }
+                                TextInput {
+                                    Layout.fillWidth: true
+                                    font.family: Theme.fonts.body
+                                    font.pixelSize: 14
+                                    color: Theme.colors.text
+                                    verticalAlignment: TextInput.AlignVCenter
+                                    Text {
+                                        anchors.fill: parent
+                                        text: "搜索联系人..."
+                                        color: Theme.colors.muted
+                                        font.family: Theme.fonts.body
+                                        font.pixelSize: 14
+                                        verticalAlignment: Text.AlignVCenter
+                                        visible: !parent.text && !parent.activeFocus
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
-                // Logout
+                // Channels Section (UI detail matching HTML mockup)
                 Rectangle {
-                    Layout.fillWidth: true; Layout.preferredHeight: 38; color: lm.containsMouse ? "#FEF2F2" : "transparent"
-                    MouseArea { id: lm; anchors.fill: parent; hoverEnabled: true; onClicked: { chatBackend.logout(); chatBackend.disconnectFromServer() } }
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 120
+                    color: "transparent"
+                    
+                    ColumnLayout {
+                        anchors.fill: parent; anchors.margins: 12; spacing: 4
+                        Text {
+                            text: "CHANNELS"
+                            font.family: Theme.fonts.mono
+                            font.pixelSize: 11
+                            font.weight: Font.Bold
+                            font.letterSpacing: 1.5
+                            color: Theme.colors.muted
+                            Layout.bottomMargin: 4
+                        }
+                        
+                        // Default General Room
+                        Rectangle {
+                            Layout.fillWidth: true; Layout.preferredHeight: 36
+                            radius: 8
+                            color: Theme.colors.sidebarActive
+                            border.width: 1; border.color: Theme.colors.border
+                            RowLayout {
+                                anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 8
+                                Text { text: "#"; font.family: Theme.fonts.mono; color: Theme.colors.muted; font.pixelSize: 14 }
+                                Text { text: "general"; font.family: Theme.fonts.body; color: Theme.colors.text; font.pixelSize: 14; Layout.fillWidth: true }
+                                Rectangle { width: 6; height: 6; radius: 3; color: Theme.colors.accent }
+                            }
+                        }
+                        
+                        // Engineering (Decorative)
+                        Rectangle {
+                            Layout.fillWidth: true; Layout.preferredHeight: 36
+                            radius: 8
+                            color: "transparent"
+                            RowLayout {
+                                anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 8
+                                Text { text: "#"; font.family: Theme.fonts.mono; color: Theme.colors.subtle; font.pixelSize: 14 }
+                                Text { text: "engineering"; font.family: Theme.fonts.body; color: Theme.colors.muted; font.pixelSize: 14; Layout.fillWidth: true }
+                            }
+                            MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.color = Theme.colors.sidebarHover; onExited: parent.color = "transparent" }
+                        }
+                    }
+                }
+
+                // Online Users Header
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 30
+                    color: "transparent"
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "DIRECT MESSAGES"
+                        font.family: Theme.fonts.mono
+                        font.pixelSize: 11
+                        font.weight: Font.Bold
+                        font.letterSpacing: 1.5
+                        color: Theme.colors.muted
+                    }
+                }
+
+                // Online users list
+                ListView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    model: chatBackend.onlineUsers
+                    spacing: 4
+                    leftMargin: 8; rightMargin: 8
+                    
+                    delegate: Item {
+                        width: ListView.view.width - 16
+                        height: 60
+                        
+                        Rectangle {
+                            id: delegateBg
+                            anchors.fill: parent
+                            radius: 8
+                            color: hoverArea.containsMouse ? Theme.colors.sidebarHover : "transparent"
+                            
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                            
+                            RowLayout {
+                                anchors.fill: parent; anchors.margins: Theme.space.sm; spacing: Theme.space.md
+                                
+                                // Avatar with online dot
+                                Item {
+                                    width: 44; height: 44
+                                    LCAvatar {
+                                        anchors.centerIn: parent
+                                        username: model.username || "?"
+                                        size: 44
+                                        isActive: false // We draw our own pulsing dot below
+                                    }
+                                    
+                                    // Pulsing dot
+                                    Rectangle {
+                                        width: 12; height: 12; radius: 6
+                                        color: Theme.colors.success
+                                        border.width: 2; border.color: Theme.colors.surface
+                                        anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: -2
+                                        
+                                        SequentialAnimation on opacity {
+                                            loops: Animation.Infinite
+                                            NumberAnimation { from: 1.0; to: 0.5; duration: 1000 }
+                                            NumberAnimation { from: 0.5; to: 1.0; duration: 1000 }
+                                        }
+                                    }
+                                }
+                                
+                                ColumnLayout {
+                                    Layout.fillWidth: true; spacing: 2
+                                    Text { 
+                                        text: model.username || ""; 
+                                        font.family: Theme.fonts.title; font.pixelSize: 15; font.weight: Font.Bold; color: Theme.colors.text 
+                                    }
+                                    Text { 
+                                        text: "在线中..."; 
+                                        font.family: Theme.fonts.caption; font.pixelSize: 13; color: Theme.colors.muted 
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
+                            
+                            MouseArea {
+                                id: hoverArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                            }
+                        }
+                    }
+                }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.colors.border }
+
+                // User card at bottom
+                Rectangle {
+                    Layout.fillWidth: true; Layout.preferredHeight: 70; 
+                    color: "transparent"
+                    
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        radius: 10
+                        color: Theme.colors.sidebarActive
                     RowLayout {
-                        anchors.fill: parent; anchors.margins: 12
-                        Text { text: "退出登录"; font.pixelSize: 13; color: lm.containsMouse ? "#EF4444" : "#8E8E93" }
+                        anchors.fill: parent; anchors.margins: Theme.space.md; spacing: Theme.space.md
+                        LCAvatar {
+                            username: chatBackend.currentUser || "U"
+                            size: 40
+                            isActive: true
+                        }
+                        ColumnLayout {
+                            spacing: 2
+                            Text { 
+                                text: chatBackend.currentUser || "用户"; 
+                                font.family: Theme.fonts.title; font.pixelSize: 14; font.weight: Font.Bold; color: Theme.colors.text 
+                            }
+                            Text { 
+                                text: "退出登录"; 
+                                font.family: Theme.fonts.caption; font.pixelSize: 12; color: Theme.colors.danger 
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: { chatBackend.logout(); chatBackend.disconnectFromServer() }
+                                }
+                            }
+                        }
                         Item { Layout.fillWidth: true }
+                    }
                     }
                 }
             }
         }
 
-        Rectangle { Layout.preferredWidth: 1; Layout.fillHeight: true; color: "#E5E5EA" }
-
         // Chat area
         Rectangle {
-            Layout.fillWidth: true; Layout.fillHeight: true; color: "#F5F5F5"
+            SplitView.fillWidth: true
+            color: Theme.colors.canvas
 
             ColumnLayout {
                 anchors.fill: parent; spacing: 0
 
                 // Header
                 Rectangle {
-                    Layout.fillWidth: true; Layout.preferredHeight: 52; color: "#FFFFFF"
+                    Layout.fillWidth: true; Layout.preferredHeight: 64; color: Theme.colors.surface
                     RowLayout {
-                        anchors.fill: parent; anchors.margins: 14; spacing: 10
-                        Text { text: "公共聊天室"; font.pixelSize: 15; font.bold: true; color: "#1A1A1A" }
+                        anchors.fill: parent; anchors.margins: Theme.space.md; spacing: Theme.space.md
+                        
+                        LCAvatar { username: "Chat"; size: 40; isActive: false }
+                        
+                        ColumnLayout {
+                            spacing: 2
+                            Text { 
+                                text: "公共聊天室"; 
+                                font.family: Theme.fonts.title; font.pixelSize: 16; font.weight: Font.Bold; color: Theme.colors.text 
+                            }
+                            Text { 
+                                text: "与世界分享你的声音"; 
+                                font.family: Theme.fonts.caption; font.pixelSize: 12; color: Theme.colors.muted 
+                            }
+                        }
+                        
                         Item { Layout.fillWidth: true }
+                        
+                        // Theme Switcher for debugging
+                        ComboBox {
+                            model: Theme.skinNames
+                            currentIndex: Theme.skinNames.indexOf(Theme.currentSkin)
+                            onActivated: index => {
+                                themeMgr.setSkin(model[index]);
+                            }
+                        }
                     }
                 }
 
-                Rectangle { Layout.fillWidth: true; height: 1; color: "#E5E5EA" }
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.colors.border }
 
                 // Messages
                 ListView {
                     id: mv
                     Layout.fillWidth: true; Layout.fillHeight: true
                     clip: true; model: chatBackend.roomMessages
-                    spacing: 4; leftMargin: 16; rightMargin: 16; topMargin: 12; bottomMargin: 12
+                    spacing: Theme.space.md; 
+                    leftMargin: Theme.space.lg; rightMargin: Theme.space.lg; 
+                    topMargin: Theme.space.md; bottomMargin: Theme.space.md
 
-                    Text { anchors.centerIn: parent; text: "暂无消息"; font.pixelSize: 14; color: "#8E8E93"; visible: mv.count === 0 }
+                    Text { 
+                        anchors.centerIn: parent; text: "暂无消息"; 
+                        font.family: Theme.fonts.body; font.pixelSize: Theme.fonts.bodySize; color: Theme.colors.muted; visible: mv.count === 0 
+                    }
 
                     onCountChanged: { if (atYEnd || count === 1) Qt.callLater(positionViewAtEnd) }
 
-                    delegate: Rectangle {
-                        width: mv.width; height: 68; color: "transparent"
-
-                        // Avatar - always visible
-                        Rectangle {
-                            x: 4; y: 4; width: 28; height: 28; radius: 14; color: "#7C8CF0"
-                            Text { anchors.centerIn: parent; text: (model.sender || "?").charAt(0).toUpperCase(); color: "#FFF"; font.pixelSize: 11; font.bold: true }
-                        }
-
-                        // Sender name
-                        Text {
-                            x: 40; y: 4; width: mv.width - 80
-                            text: model.sender || ""
-                            font.pixelSize: 11; font.bold: true; color: "#8E8E93"
-                            elide: Text.ElideRight
-                        }
-
-                        // Content - use mv.width not parent.width
-                        Text {
-                            x: 40; y: 22; width: mv.width - 80
-                            text: model.content || ""
-                            font.pixelSize: 14; color: "#1A1A1A"
-                            wrapMode: Text.Wrap
-                        }
-
-                        // Timestamp
-                        Text {
-                            x: mv.width - 80; y: 50
-                            text: model.timestamp || ""
-                            font.pixelSize: 10; color: "#AEAEB2"
-                        }
+                    delegate: MessageBubble {
+                        text: model.content || ""
+                        isSelf: model.sender === chatBackend.currentUser
+                        sender: model.sender || ""
+                        time: model.timestamp || ""
+                        hasTail: true
+                        width: ListView.view.width - ListView.view.leftMargin - ListView.view.rightMargin
                     }
                 }
 
                 // Input
                 Rectangle {
-                    Layout.fillWidth: true; Layout.preferredHeight: 64; color: "#FFFFFF"; border.width: 1; border.color: "#E5E5EA"
+                    Layout.fillWidth: true; Layout.preferredHeight: 80; 
+                    color: Theme.colors.surface; 
+                    border.width: 1; border.color: Theme.colors.border
+                    
                     RowLayout {
-                        anchors.fill: parent; anchors.margins: 10; spacing: 10
+                        anchors.fill: parent; anchors.margins: Theme.space.md; spacing: Theme.space.md
+                        
                         Rectangle {
-                            Layout.fillWidth: true; Layout.fillHeight: true; radius: 4; color: "#F5F5F5"; border.width: 1; border.color: "#E5E5EA"
-                            TextArea {
-                                id: inp; anchors.fill: parent; anchors.margins: 8
-                                placeholderText: "输入消息..."; font.pixelSize: 14; color: "#1A1A1A"
-                                background: Rectangle { color: "transparent" }
+                            Layout.fillWidth: true; Layout.fillHeight: true; 
+                            radius: Theme.bubble.radius; 
+                            color: Theme.colors.canvas; 
+                            border.width: 1; border.color: Theme.colors.border
+                            
+                            ScrollView {
+                                anchors.fill: parent; anchors.margins: Theme.space.sm
+                                TextArea {
+                                    id: inp
+                                    placeholderText: "输入消息..."
+                                    font.family: Theme.fonts.body
+                                    font.pixelSize: Theme.fonts.bodySize
+                                    color: Theme.colors.text
+                                    background: null
+                                    wrapMode: Text.Wrap
+                                    
+                                    Keys.onReturnPressed: (event) => {
+                                        if (event.modifiers & Qt.ShiftModifier) {
+                                            // Let the default handler add a new line
+                                            event.accepted = false;
+                                        } else {
+                                            send();
+                                            event.accepted = true;
+                                        }
+                                    }
+                                }
                             }
                         }
-                        Button {
-                            id: sb; Layout.preferredWidth: 40; Layout.preferredHeight: 40
+                        
+                        LCButton {
+                            id: sb; Layout.preferredWidth: 64; Layout.preferredHeight: 48
+                            text: "发送"
                             enabled: inp.text.trim().length > 0; onClicked: send()
-                            background: Rectangle { radius: 4; color: sb.enabled ? "#8E8E93" : "#E5E5EA" }
-                            contentItem: Text { text: "↑"; font.pixelSize: 18; font.bold: true; color: "#FFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                         }
                     }
                 }

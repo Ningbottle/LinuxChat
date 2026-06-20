@@ -6,7 +6,7 @@
 #include "database.h"
 #include <stdexcept>
 #include <algorithm>
-#include <iostream>
+#include <spdlog/spdlog.h>
 
 // ── Constructor / Destructor ───────────────────────────────────────
 
@@ -31,10 +31,18 @@ Database::Database(const std::string& db_path) {
     exec_sql("PRAGMA cache_size=-64000;"); // 64 MB
 
     init_schema();
+    prepare_statements();
 }
 
 Database::~Database() {
     if (db_) {
+        sqlite3_finalize(stmt_register_);
+        sqlite3_finalize(stmt_verify_);
+        sqlite3_finalize(stmt_get_hash_);
+        sqlite3_finalize(stmt_store_msg_);
+        sqlite3_finalize(stmt_hist_room_);
+        sqlite3_finalize(stmt_hist_priv_);
+
         sqlite3_close(db_);
         db_ = nullptr;
     }
@@ -77,6 +85,30 @@ void Database::init_schema() {
     )");
 }
 
+void Database::prepare_statements() {
+    auto prepare = [this](const char* sql, sqlite3_stmt** stmt) {
+        if (sqlite3_prepare_v2(db_, sql, -1, stmt, nullptr) != SQLITE_OK) {
+            throw std::runtime_error("Database failed to prepare statement: " + std::string(sqlite3_errmsg(db_)));
+        }
+    };
+
+    prepare("INSERT OR IGNORE INTO users (username, password_hash) VALUES (?, ?);", &stmt_register_);
+    prepare("SELECT password_hash FROM users WHERE username = ?;", &stmt_verify_);
+    prepare("SELECT password_hash FROM users WHERE username = ?;", &stmt_get_hash_);
+    prepare("INSERT INTO messages (from_user, to_user, content, timestamp) VALUES (?, ?, ?, ?);", &stmt_store_msg_);
+    
+    prepare("SELECT * FROM ("
+            "SELECT from_user, content, timestamp FROM messages "
+            "WHERE to_user = ? ORDER BY timestamp DESC LIMIT ?"
+            ") ORDER BY timestamp ASC;", &stmt_hist_room_);
+
+    prepare("SELECT * FROM ("
+            "SELECT from_user, content, timestamp FROM messages "
+            "WHERE (from_user = ? AND to_user = ?) OR (from_user = ? AND to_user = ?) "
+            "ORDER BY timestamp DESC LIMIT ?"
+            ") ORDER BY timestamp ASC;", &stmt_hist_priv_);
+}
+
 // ── User Management ────────────────────────────────────────────────
 
 bool Database::register_user(const std::string& username, const std::string& password_hash) {
@@ -86,22 +118,16 @@ bool Database::register_user(const std::string& username, const std::string& pas
 
     std::lock_guard<std::mutex> lock(db_mutex_);
 
-    sqlite3_stmt* stmt = nullptr;
-    const char* sql = "INSERT OR IGNORE INTO users (username, password_hash) VALUES (?, ?);";
-    int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
-    if (rc != SQLITE_OK) {
-        std::cerr << "[Database] prepare error: " << sqlite3_errmsg(db_) << "\n";
-        return false;
-    }
+    sqlite3_reset(stmt_register_);
+    sqlite3_clear_bindings(stmt_register_);
 
-    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, password_hash.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt_register_, 1, username.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt_register_, 2, password_hash.c_str(), -1, SQLITE_TRANSIENT);
 
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
+    int rc = sqlite3_step(stmt_register_);
 
     if (rc != SQLITE_DONE) {
-        std::cerr << "[Database] register_user step error: " << sqlite3_errmsg(db_) << "\n";
+        spdlog::error("[Database] register_user step error: {}", sqlite3_errmsg(db_));
         return false;
     }
 
@@ -112,51 +138,38 @@ bool Database::register_user(const std::string& username, const std::string& pas
 bool Database::verify_user(const std::string& username, const std::string& password_hash) {
     std::lock_guard<std::mutex> lock(db_mutex_);
 
-    sqlite3_stmt* stmt = nullptr;
-    const char* sql = "SELECT password_hash FROM users WHERE username = ?;";
-    int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
-    if (rc != SQLITE_OK) {
-        std::cerr << "[Database] prepare error: " << sqlite3_errmsg(db_) << "\n";
-        return false;
-    }
+    sqlite3_reset(stmt_verify_);
+    sqlite3_clear_bindings(stmt_verify_);
 
-    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt_verify_, 1, username.c_str(), -1, SQLITE_TRANSIENT);
 
-    rc = sqlite3_step(stmt);
+    int rc = sqlite3_step(stmt_verify_);
     bool result = false;
 
     if (rc == SQLITE_ROW) {
-        const char* stored_hash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        const char* stored_hash = reinterpret_cast<const char*>(sqlite3_column_text(stmt_verify_, 0));
         if (stored_hash && password_hash == stored_hash) {
             result = true;
         }
     }
 
-    sqlite3_finalize(stmt);
     return result;
 }
 
 std::string Database::get_stored_hash(const std::string& username) {
     std::lock_guard<std::mutex> lock(db_mutex_);
 
-    sqlite3_stmt* stmt = nullptr;
-    const char* sql = "SELECT password_hash FROM users WHERE username = ?;";
-    int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
-    if (rc != SQLITE_OK) {
-        std::cerr << "[Database] prepare error: " << sqlite3_errmsg(db_) << "\n";
-        return "";
-    }
+    sqlite3_reset(stmt_get_hash_);
+    sqlite3_clear_bindings(stmt_get_hash_);
 
-    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt_get_hash_, 1, username.c_str(), -1, SQLITE_TRANSIENT);
 
     std::string stored;
-    rc = sqlite3_step(stmt);
-    if (rc == SQLITE_ROW) {
-        const char* hash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+    if (sqlite3_step(stmt_get_hash_) == SQLITE_ROW) {
+        const char* hash = reinterpret_cast<const char*>(sqlite3_column_text(stmt_get_hash_, 0));
         if (hash) stored = hash;
     }
 
-    sqlite3_finalize(stmt);
     return stored;
 }
 
@@ -166,49 +179,48 @@ void Database::store_message(const std::string& from, const std::string& to,
                              const std::string& content, int64_t timestamp) {
     std::lock_guard<std::mutex> lock(db_mutex_);
 
-    sqlite3_stmt* stmt = nullptr;
-    const char* sql =
-        "INSERT INTO messages (from_user, to_user, content, timestamp) VALUES (?, ?, ?, ?);";
-    int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
-    if (rc != SQLITE_OK) {
-        std::cerr << "[Database] prepare error: " << sqlite3_errmsg(db_) << "\n";
-        return;
-    }
+    sqlite3_reset(stmt_store_msg_);
+    sqlite3_clear_bindings(stmt_store_msg_);
 
-    sqlite3_bind_text(stmt, 1, from.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, to.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 3, content.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int64(stmt, 4, timestamp);
+    sqlite3_bind_text(stmt_store_msg_, 1, from.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt_store_msg_, 2, to.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt_store_msg_, 3, content.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt_store_msg_, 4, timestamp);
 
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
+    int rc = sqlite3_step(stmt_store_msg_);
 
     if (rc != SQLITE_DONE) {
-        std::cerr << "[Database] store_message error: " << sqlite3_errmsg(db_) << "\n";
+        spdlog::error("[Database] store_message error: {}", sqlite3_errmsg(db_));
     }
 }
 
-std::vector<nlohmann::json> Database::get_history(const std::string& to, int limit) {
+std::vector<nlohmann::json> Database::get_history(const std::string& requestor, const std::string& target, int limit) {
     // Clamp limit to [1, 200]
     limit = std::clamp(limit, 1, 200);
 
     std::lock_guard<std::mutex> lock(db_mutex_);
 
     sqlite3_stmt* stmt = nullptr;
-    const char* sql =
-        "SELECT from_user, content, timestamp FROM messages "
-        "WHERE to_user = ? ORDER BY timestamp ASC LIMIT ?;";
-    int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
-    if (rc != SQLITE_OK) {
-        std::cerr << "[Database] prepare error: " << sqlite3_errmsg(db_) << "\n";
-        return {};
+    
+    if (target == "__room__") {
+        stmt = stmt_hist_room_;
+        sqlite3_reset(stmt);
+        sqlite3_clear_bindings(stmt);
+        sqlite3_bind_text(stmt, 1, target.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 2, limit);
+    } else {
+        stmt = stmt_hist_priv_;
+        sqlite3_reset(stmt);
+        sqlite3_clear_bindings(stmt);
+        sqlite3_bind_text(stmt, 1, requestor.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, target.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 3, target.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 4, requestor.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 5, limit);
     }
 
-    sqlite3_bind_text(stmt, 1, to.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 2, limit);
-
     std::vector<nlohmann::json> result;
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
         const char* from_user = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
         const char* content   = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
         int64_t ts            = sqlite3_column_int64(stmt, 2);
@@ -220,6 +232,5 @@ std::vector<nlohmann::json> Database::get_history(const std::string& to, int lim
         });
     }
 
-    sqlite3_finalize(stmt);
     return result;
 }

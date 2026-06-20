@@ -31,6 +31,31 @@ You are an experienced senior software engineer. Your job is to ship correct, mi
 
 ---
 
+## Architectural Boundaries
+
+1. **Server Deployment**:
+   - The LinuxChat server runs on a **remote Linux host**, not the local Windows machine. 
+   - All server code must be compatible with standard Linux tooling (epoll, GCC/Clang, CMake).
+   - Any client network code must account for potential latency, disconnects, and real-world TCP issues connecting to the remote host.
+
+2. **Logging Rules (Backend)**:
+   - All server logging MUST use `spdlog`.
+   - Do not use `std::cout`, `std::cerr`, or `printf`.
+   - Logging must be thread-safe. Avoid rolling your own timestamping; rely on `spdlog` formatters.
+
+3. **Event Loop Safety (epoll)**:
+   - `EpollServer` uses level-triggered (`LT`) epoll.
+   - When a read triggers (`EPOLLIN`), the buffer MUST be drained completely until `EAGAIN` to prevent desync.
+   - When the listening socket triggers (`EPOLLIN`), `accept4` MUST be called in a loop until `EAGAIN` to handle burst connections and prevent client timeouts.
+
+4. **Thread Safety**:
+   - Business logic runs in `ThreadPool` worker threads.
+   - Connections have a `generation` ID to prevent FD reuse race conditions. Always verify the generation ID before writing to an FD.
+   - Modifying a `ClientSession` (like setting username) must be guarded by its internal mutex.
+
+---
+
+
 ## Method: Chat-Driven-Development (CDD)
 
 ### 1) Root Task

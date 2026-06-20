@@ -169,14 +169,15 @@ cmake .. && make -j && ctest --output-on-failure
 ```
 
 ### Deploy
-- 服务端:Linux 机器运行 `linuxchat_server`,确保 8080 端口在**本机防火墙(ufw/firewalld)**和**云安全组(阿里云等)**均放行
-- 客户端:Windows 运行 exe,登录界面填写服务端公网 IP + 端口
+- 服务端:Linux 机器运行 `linuxchat_server`，已部署在远程 Linux 主机 `120.55.63.32:8080`。确保端口在防火墙和安全组均已放行。
+- 客户端:Windows 运行 exe，目前 IP 已写死为 `120.55.63.32`。
+- **已知网络问题**: 主机连接后端时偶尔会出现连接失败的情况，通常多尝试几次即可成功（可能由于网络波动、TCP 握手超时、或是服务端并发 accept 丢包导致）。
 
 ## Observability
 
-- **Logs**: 服务端 stdout,格式 `[Component] message`(`[Server]`/`[Handler]`/`[Database]`/`[Protocol]`)。客户端 `qDebug()` 输出。
+- **Logs**: 服务端已全面重构为使用 `spdlog`，支持高并发环境下的线程安全日志输出。格式 `[Component] message`(`[Server]`/`[Handler]`/`[Database]`/`[Protocol]`)。客户端使用 `qDebug()` 输出。
 - **Metrics**: 无(课设范围)
-- **Error taxonomy**: 见 `docs/protocol.md` 错误码表(USER_EXISTS/WRONG_PASSWORD/TARGET_OFFLINE/NOT_AUTHENTICATED/INVALID_MSG 等)
+- **Error taxonomy**: 见 `docs/protocol.md` 错误码表
 
 ## Security
 

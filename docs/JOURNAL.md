@@ -30,6 +30,12 @@ Important: (add especially important remarks here; can be omitted if there aren'
 
 ## ENTRIES (LATEST ON TOP)
 
+[2026-06-20]
+Context: Frontend migration from 4 static HTML design prototypes (Minimal, Dense, Motion, iMessage) to a high-fidelity QML UI.
+Decisions: Created `Theme.qml` as a `pragma Singleton` mapped to C++ `ThemeManager::skinName()`. Replaced rudimentary items with `components/LCButton.qml`, `LCTextField.qml`, and `MessageBubble.qml`. Refactored `ChatWindow.qml` and `LoginDialog.qml` to bind directly to `Theme.colors` and `Theme.fonts`.
+Findings: C++ `ThemeManager` returned flat objects, requiring `Theme.qml` to manage detailed spacing/radius tokens.
+Risks: Qt6 `GraphicalEffects` deprecation required fallback to basic borders and rectangle radii; `MultiEffect` may be required for complex shadows later.
+
 [2026-06-19]
 Context: CDD documentation initialization after the repo had a template `docs/INDEX.md`, current Chinese Ink QSS theme, and in-progress QML scaffolding. The workspace root `D:\ChatBox` contains templates/logs/skills, while the real Git repo is `D:\ChatBox\LinuxChat`.
 Decisions: Regenerate `docs/INDEX.md` in single-file mode because no `docs/index/` split exists and the refreshed inventory stays under the split threshold. Keep Widgets as the current runtime path, mark QML as scaffold only, and document friend/blacklist protocol messages as reserved rather than implemented.

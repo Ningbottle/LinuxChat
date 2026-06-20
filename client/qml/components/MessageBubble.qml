@@ -1,199 +1,145 @@
-// MessageBubble.qml — Chat message bubble (3 variants: self / other / system)
-//
-// PRD §4 Step 3: "3 种变体（self / other / system），参照 chat_view.cpp:create_bubble / create_system_bubble"
-// Visual spec: design-a (4px radius, gray accent), design-b (10px, blue), design-c (16px, purple), design-d (18px, iMessage)
-
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
-import LinuxChat
+import QtQuick.Effects
+import "../styles"
 
 Item {
     id: root
 
-    // ── Public properties (bound by ListView delegate) ──────────
-    property string sender:    ""
-    property string content:   ""
-    property string timestamp: ""
-    property bool   isSelf:    false
-    property string messageType: "normal"   // "normal" | "system" | "timeSeparator"
+    property string text: ""
+    property bool isSelf: false
+    property string sender: ""
+    property string time: ""
+    property bool hasTail: true // Typically based on whether previous/next message is same sender
 
-    // ── Sizing ──────────────────────────────────────────────────
-    implicitWidth:  parent ? parent.width : 400
-    implicitHeight: messageType === "system" ? systemBubble.implicitHeight
-                   : normalBubble.implicitHeight
+    // Dynamic width based on contents, constrained by Theme
+    width: parent.width
+    height: layout.height + Theme.space.sm
 
-    // ════════════════════════════════════════════════════════════
-    //  System message (centered, muted pill)
-    // ════════════════════════════════════════════════════════════
+    ColumnLayout {
+        id: layout
+        width: Math.min(implicitWidth, Theme.bubble.maxWidth)
+        
+        anchors.right: isSelf ? parent.right : undefined
+        anchors.left: isSelf ? undefined : parent.left
+        anchors.rightMargin: isSelf ? Theme.space.md : 0
+        anchors.leftMargin: isSelf ? 0 : Theme.space.md
 
-    Item {
-        id: systemBubble
-        anchors.horizontalCenter: parent.horizontalCenter
-        width:  parent.width
-        height: systemLabel.implicitHeight + themeMgr.skin().md * 2
-        visible: messageType === "system"
-
-        Rectangle {
-            anchors.centerIn: systemLabel
-            width:  systemLabel.implicitWidth + themeMgr.skin().lg * 2
-            height: systemLabel.implicitHeight + themeMgr.skin().sm * 2
-            radius: themeMgr.skin().full
-            color:  Qt.rgba(0, 0, 0, 0.05)
-
-            Label {
-                id: systemLabel
-                anchors.centerIn: parent
-                text:           content
-                font.family:    themeMgr.skin().caption
-                font.pixelSize: themeMgr.skin().captionSize
-                color:          themeMgr.skin().muted
+        // Header (Sender + Time)
+        RowLayout {
+            Layout.alignment: isSelf ? Qt.AlignRight : Qt.AlignLeft
+            visible: !isSelf && root.sender !== ""
+            
+            Text {
+                text: root.sender
+                font.family: Theme.fonts.caption
+                font.pixelSize: Theme.fonts.captionSize
+                color: Theme.colors.subtle
             }
-        }
-    }
-
-    // ════════════════════════════════════════════════════════════
-    //  Normal message bubble (self / other)
-    // ════════════════════════════════════════════════════════════
-
-    RowLayout {
-        id: normalBubble
-        anchors.left:   isSelf ? undefined : parent.left
-        anchors.right:  isSelf ? parent.right : undefined
-        width:          parent.width
-        spacing:        themeMgr.skin().sm
-        visible:        messageType !== "system"
-
-        // Avatar (other only)
-        Rectangle {
-            Layout.preferredWidth:  themeMgr.skin().size
-            Layout.preferredHeight: themeMgr.skin().size
-            Layout.alignment:       Qt.AlignTop
-            Layout.leftMargin:      isSelf ? 0 : themeMgr.skin().sm
-            Layout.rightMargin:     isSelf ? themeMgr.skin().sm : 0
-            visible:                !isSelf
-            radius:                 themeMgr.skin().full
-            color:                  _avatarColor(sender)
-
-            Label {
-                anchors.centerIn: parent
-                text:           sender.length > 0 ? sender.charAt(0).toUpperCase() : "?"
-                font.family:    themeMgr.skin().body
-                font.pixelSize: themeMgr.skin().size * 0.4
-                font.bold:      true
-                color:          "#FFFFFF"
+            Text {
+                text: root.time
+                font.family: Theme.fonts.mono
+                font.pixelSize: Theme.fonts.captionSize - 1
+                color: Theme.colors.muted
             }
         }
 
-        // Spacer (self only, pushes bubble right)
-        Item { Layout.fillWidth: isSelf; visible: isSelf }
+        // The Bubble Container
+        Item {
+            id: bubbleContainer
+            Layout.alignment: isSelf ? Qt.AlignRight : Qt.AlignLeft
+            
+            implicitWidth: msgText.implicitWidth + Theme.bubble.paddingH * 2
+            implicitHeight: msgText.implicitHeight + Theme.bubble.paddingV * 2
 
-        // Bubble column
-        ColumnLayout {
-            spacing: 2
-            Layout.maximumWidth: themeMgr.skin().maxWidth
-
-            // Sender name (other only, in group chats)
-            Label {
-                text:           sender
-                font.family:    themeMgr.skin().caption
-                font.pixelSize: themeMgr.skin().captionSize
-                font.bold:      true
-                color:          themeMgr.skin().muted
-                visible:        !isSelf
-            }
-
-            // Bubble rectangle
+            // Main Bubble Background
             Rectangle {
-                Layout.fillWidth: true
-                radius: themeMgr.skin().radius
-                color:  isSelf ? themeMgr.skin().bubbleSelf : themeMgr.skin().bubbleOther
-                border.width: isSelf ? 0 : 1
-                border.color: themeMgr.skin().border
+                id: bubbleBg
+                anchors.fill: parent
+                color: isSelf ? Theme.colors.bubbleSelf : Theme.colors.bubbleOther
+                radius: Theme.bubble.radius
+                
+                border.color: (!isSelf && Theme.currentSkin === "Motion") ? Theme.colors.border : "transparent"
+                border.width: border.color !== "transparent" ? 1 : 0
+            }
 
-                ColumnLayout {
-                    anchors.fill:    parent
-                    anchors.leftMargin:   themeMgr.skin().paddingH
-                    anchors.rightMargin:  themeMgr.skin().paddingH
-                    anchors.topMargin:    themeMgr.skin().paddingV
-                    anchors.bottomMargin: themeMgr.skin().paddingV
-                    spacing: 4
+            // Sharp corner for tail
+            Rectangle {
+                id: sharpCorner
+                visible: root.hasTail && (Theme.currentSkin === "iMessage" || Theme.currentSkin === "Minimal")
+                width: Theme.bubble.radius
+                height: Theme.bubble.radius
+                color: bubbleBg.color
+                
+                anchors.bottom: parent.bottom
+                anchors.right: isSelf ? parent.right : undefined
+                anchors.left: isSelf ? undefined : parent.left
+            }
 
-                    // Content
-                    Label {
-                        Layout.fillWidth:  true
-                        text:              content
-                        font.family:       themeMgr.skin().body
-                        font.pixelSize:    themeMgr.skin().bodySize
-                        color:             isSelf ? themeMgr.skin().bubbleSelfText : themeMgr.skin().bubbleOtherText
-                        wrapMode:          Text.Wrap
-                        textFormat:        Text.PlainText
-                    }
-
-                    // Timestamp
-                    Label {
-                        Layout.alignment: Qt.AlignRight
-                        text:             _formatTime(timestamp)
-                        font.family:      themeMgr.skin().caption
-                        font.pixelSize:   10
-                        color:            isSelf ? Qt.rgba(1,1,1,0.55) : themeMgr.skin().subtle
-                    }
+            // iMessage specific tail swoosh
+            Rectangle {
+                id: tailSwoosh
+                visible: root.hasTail && Theme.currentSkin === "iMessage"
+                width: 12
+                height: 16
+                color: bubbleBg.color
+                
+                anchors.bottom: parent.bottom
+                anchors.right: isSelf ? parent.right : undefined
+                anchors.left: isSelf ? undefined : parent.left
+                anchors.rightMargin: isSelf ? -8 : 0
+                anchors.leftMargin: isSelf ? 0 : -8
+                
+                // Mask to create the curve
+                Rectangle {
+                    width: 20
+                    height: 20
+                    radius: 10
+                    color: Theme.colors.canvas
+                    anchors.bottom: parent.bottom
+                    anchors.right: isSelf ? parent.right : undefined
+                    anchors.left: isSelf ? undefined : parent.left
+                    anchors.rightMargin: isSelf ? -12 : 0
+                    anchors.leftMargin: isSelf ? 0 : -12
                 }
             }
-        }
 
-        // Avatar (self only)
-        Rectangle {
-            Layout.preferredWidth:  themeMgr.skin().size
-            Layout.preferredHeight: themeMgr.skin().size
-            Layout.alignment:       Qt.AlignTop
-            Layout.rightMargin:     themeMgr.skin().sm
-            visible:                isSelf
-            radius:                 themeMgr.skin().full
-            color:                  _avatarColor(sender)
+            Text {
+                id: msgText
+                text: root.text
+                font.family: Theme.fonts.body
+                font.pixelSize: Theme.fonts.bodySize
+                color: isSelf ? Theme.colors.bubbleSelfText : Theme.colors.bubbleOtherText
+                wrapMode: Text.Wrap
+                width: Math.min(implicitWidth, Theme.bubble.maxWidth - Theme.bubble.paddingH * 2)
 
-            Label {
                 anchors.centerIn: parent
-                text:           sender.length > 0 ? sender.charAt(0).toUpperCase() : "?"
-                font.family:    themeMgr.skin().body
-                font.pixelSize: themeMgr.skin().size * 0.4
-                font.bold:      true
-                color:          "#FFFFFF"
             }
         }
-    }
-
-    // ── Enter animation (PRD: "消息发送气泡：从底部弹入 scale 0.8→1.0 + opacity 0→1, 200ms") ──
-    opacity: 0
-    scale: 0.8
-    y: 6
-    Component.onCompleted: bounceIn.start()
-
-    ParallelAnimation {
-        id: bounceIn
-        NumberAnimation { target: root; property: "opacity"; from: 0.0; to: 1.0; duration: 200; easing.type: Easing.OutCubic }
-        NumberAnimation { target: root; property: "scale";   from: 0.8; to: 1.0; duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
-        NumberAnimation { target: root; property: "y";       from: root.y + 6; to: root.y; duration: 200; easing.type: Easing.OutCubic }
-    }
-
-    // ── Helpers ──────────────────────────────────────────────────
-
-    function _formatTime(ts) {
-        if (!ts || ts.length === 0) return "";
-        return ts;  // Already formatted by C++ backend
-    }
-
-    // Deterministic avatar color from username (ref: design-d getColor)
-    function _avatarColor(name) {
-        var colors = ["#FF6B6B","#4ECDC4","#45B7D1","#96CEB4","#FFEAA7",
-                      "#DDA0DD","#98D8C8","#F7DC6F","#BB8FCE","#85C1E9",
-                      "#F8C471","#82E0AA","#F1948A","#AED6F1","#D7BDE2",
-                      "#A3E4D7"];
-        var hash = 0;
-        for (var i = 0; i < name.length; i++) {
-            hash = ((hash << 5) - hash) + name.charCodeAt(i);
-            hash = hash & hash;
+        
+        // MultiEffect for Shadows (Motion & Minimal)
+        MultiEffect {
+            source: bubbleContainer
+            anchors.fill: bubbleContainer
+            shadowEnabled: Theme.currentSkin === "Motion" || Theme.currentSkin === "Minimal"
+            shadowColor: "#1A000000" // 10% black
+            shadowBlur: 0.5
+            shadowVerticalOffset: 2
+            shadowHorizontalOffset: 0
+            z: -1
         }
-        return colors[Math.abs(hash) % colors.length];
+        
+        // Pop-in animation
+        Component.onCompleted: {
+            bubbleContainer.scale = 0.8
+            bubbleContainer.opacity = 0
+            anim.start()
+        }
+        
+        ParallelAnimation {
+            id: anim
+            NumberAnimation { target: bubbleContainer; property: "scale"; to: 1.0; duration: 200; easing.type: Easing.OutBack }
+            NumberAnimation { target: bubbleContainer; property: "opacity"; to: 1.0; duration: 150 }
+        }
     }
 }

@@ -64,7 +64,7 @@ public:
 
     /// Check if an IP is rate-limited for login attempts.
     /// @return true if the IP is currently blocked.
-    bool is_rate_limited(const std::string& ip_address) const;
+    bool is_rate_limited(const std::string& ip_address);
 
     /// Record a failed login attempt for an IP address.
     void record_failed_login(const std::string& ip_address);

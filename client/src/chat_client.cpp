@@ -268,8 +268,8 @@ void ChatClient::process_frames() {
             return;
         }
 
-        // Guard against oversized messages (256KB limit, matches server protocol.cpp)
-        if (body_len > 256 * 1024) {
+        // Guard against oversized messages (16MB limit, matches server protocol.cpp)
+        if (body_len > 16 * 1024 * 1024) {
             qWarning("[ChatClient] Oversized frame (%u bytes), disconnecting.", body_len);
             recv_buf_.clear();
             disconnect_from_server();  // Use abort()+SO_LINGER, not disconnectFromHost()

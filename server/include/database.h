@@ -48,15 +48,24 @@ public:
                        const std::string& content, int64_t timestamp);
 
     /// Retrieve message history for a target.
-    /// @param to     "__room__" for broadcast history; username for private history.
-    /// @param limit  Maximum number of messages to return (default 20, max 200).
+    /// @param requestor The user requesting the history.
+    /// @param target    "__room__" for broadcast history; username for private history.
+    /// @param limit     Maximum number of messages to return (default 20, max 200).
     /// @return Vector of JSON objects: {"from": "...", "content": "...", "timestamp": N}
-    std::vector<nlohmann::json> get_history(const std::string& to, int limit = 20);
+    std::vector<nlohmann::json> get_history(const std::string& requestor, const std::string& target, int limit = 20);
 
 private:
     void init_schema();
     void exec_sql(const std::string& sql);
+    void prepare_statements();
 
     sqlite3* db_ = nullptr;
     mutable std::mutex db_mutex_;
+
+    sqlite3_stmt* stmt_register_ = nullptr;
+    sqlite3_stmt* stmt_verify_ = nullptr;
+    sqlite3_stmt* stmt_get_hash_ = nullptr;
+    sqlite3_stmt* stmt_store_msg_ = nullptr;
+    sqlite3_stmt* stmt_hist_room_ = nullptr;
+    sqlite3_stmt* stmt_hist_priv_ = nullptr;
 };

@@ -1,0 +1,4 @@
+module components
+LCButton 1.0 LCButton.qml
+LCTextField 1.0 LCTextField.qml
+MessageBubble 1.0 MessageBubble.qml

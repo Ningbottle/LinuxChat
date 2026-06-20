@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <cerrno>
 #include <cstring>
-#include <iostream>
 #include <thread>
 #include <chrono>
 
@@ -32,7 +31,7 @@ static bool write_all(int fd, const void* buf, size_t len) {
         if (n < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 if (std::chrono::steady_clock::now() >= deadline) {
-                    std::cerr << "[Protocol] write_all timeout (5s) on fd=" << fd << "\n";
+                    spdlog::error("[Protocol] write_all timeout (5s) on fd={}", fd);
                     ::shutdown(fd, SHUT_WR);  // prevent further sends on corrupted stream
                     return false;
                 }
@@ -54,15 +53,14 @@ bool send_msg(int fd, const nlohmann::json& msg) {
     try {
         body = msg.dump();
     } catch (const std::exception& e) {
-        std::cerr << now_stamp() << " [Protocol] JSON serialization error: " << e.what() << "\n";
+        spdlog::error("[Protocol] JSON serialization error: {}", e.what());
         return false;
     }
 
     // Guard against oversized outbound frames (defense-in-depth)
-    constexpr size_t MAX_BODY_LEN = 256 * 1024;
+    constexpr size_t MAX_BODY_LEN = 16 * 1024 * 1024;
     if (body.size() > MAX_BODY_LEN) {
-        std::cerr << now_stamp() << " [Protocol] send_msg: body too large ("
-                  << body.size() << " bytes), refusing to send.\n";
+        spdlog::error("[Protocol] send_msg: body too large ({} bytes), refusing to send.", body.size());
         return false;
     }
 
@@ -94,16 +92,14 @@ std::optional<std::vector<nlohmann::json>> recv_msgs(ClientSession& session) {
     bool peer_closed = false;
     uint8_t tmp[4096];
 
-    // Maximum recv_buf size: 1MB. Prevents DoS from clients that send data
+    // Maximum recv_buf size: 32MB. Prevents DoS from clients that send data
     // without proper framing, causing unbounded memory growth.
-    constexpr size_t MAX_RECV_BUF_SIZE = 1024 * 1024;
+    constexpr size_t MAX_RECV_BUF_SIZE = 32 * 1024 * 1024;
 
     for (;;) {
         // Check recv_buf size before adding more data
         if (session.recv_buf.size() >= MAX_RECV_BUF_SIZE) {
-            std::cerr << now_stamp() << " [Protocol] fd=" << session.fd
-                      << " recv_buf too large (" << session.recv_buf.size()
-                      << " bytes), dropping connection.\n";
+            spdlog::error("[Protocol] fd={} recv_buf too large ({} bytes), dropping connection.", session.fd, session.recv_buf.size());
             return std::nullopt;
         }
 
@@ -115,7 +111,7 @@ std::optional<std::vector<nlohmann::json>> recv_msgs(ClientSession& session) {
         if (n == 0) {
             // Connection closed by peer (FIN received).
             // Mark and break to process any buffered data first.
-            std::cout << now_stamp() << " [Protocol] fd=" << session.fd << " recv n=0 (peer closed from client side)" << std::endl;
+            spdlog::info("[Protocol] fd={} recv n=0 (peer closed from client side)", session.fd);
             peer_closed = true;
             break;
         }
@@ -123,7 +119,7 @@ std::optional<std::vector<nlohmann::json>> recv_msgs(ClientSession& session) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             break;  // no more data right now; parse what we have
         }
-        std::cout << now_stamp() << " [Protocol] fd=" << session.fd << " recv error: " << strerror(errno) << std::endl;
+        spdlog::info("[Protocol] fd={} recv error: {}", session.fd, strerror(errno));
         return std::nullopt; // real error
     }
 
@@ -139,18 +135,16 @@ std::optional<std::vector<nlohmann::json>> recv_msgs(ClientSession& session) {
 
         // Guard against zero-length body
         if (body_len == 0) {
-            std::cerr << now_stamp() << " [Protocol] fd=" << session.fd
-                      << " sent zero-length body, dropping.\n";
+            spdlog::error("[Protocol] fd={} sent zero-length body, dropping.", session.fd);
             buf.clear();
             return std::nullopt;
         }
 
-        // Guard against oversized messages (256KB limit for chat protocol).
+        // Guard against oversized messages (16MB limit for chat protocol).
         // Close the connection: oversized claim is either attack or unrecoverable desync.
-        constexpr uint32_t MAX_BODY_LEN = 256 * 1024;
+        constexpr uint32_t MAX_BODY_LEN = 16 * 1024 * 1024;
         if (body_len > MAX_BODY_LEN) {
-            std::cerr << now_stamp() << " [Protocol] fd=" << session.fd
-                      << " sent oversized frame (" << body_len << " bytes), dropping.\n";
+            spdlog::error("[Protocol] fd={} sent oversized frame ({} bytes), dropping.", session.fd, body_len);
             buf.clear();
             return std::nullopt;
         }
@@ -168,12 +162,10 @@ std::optional<std::vector<nlohmann::json>> recv_msgs(ClientSession& session) {
             messages.push_back(nlohmann::json::parse(json_str));
             session.consecutive_parse_failures = 0;  // Reset on success
         } catch (const nlohmann::json::parse_error& e) {
-            std::cerr << now_stamp() << " [Protocol] fd=" << session.fd
-                      << " JSON parse error: " << e.what() << "\n";
+            spdlog::error("[Protocol] fd={} JSON parse error: {}", session.fd, e.what());
             // Disconnect after 3 consecutive parse failures (malicious client)
             if (++session.consecutive_parse_failures >= 3) {
-                std::cerr << now_stamp() << " [Protocol] fd=" << session.fd
-                          << " too many parse failures, dropping connection.\n";
+                spdlog::error("[Protocol] fd={} too many parse failures, dropping connection.", session.fd);
                 return std::nullopt;
             }
         }

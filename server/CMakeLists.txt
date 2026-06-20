@@ -30,11 +30,14 @@ add_executable(linuxchat_server
 
 # Link libraries
 find_package(OpenSSL REQUIRED)
+find_package(spdlog REQUIRED)
+
 target_link_libraries(linuxchat_server
     pthread
     sqlite3
     OpenSSL::SSL
     OpenSSL::Crypto
+    spdlog::spdlog
 )
 
 # Optional: install
