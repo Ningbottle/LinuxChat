@@ -60,7 +60,7 @@ Rectangle {
                         text: "Connect securely with friends across platforms in real time."
                         font.family: Theme.fonts.body
                         font.pixelSize: Theme.fonts.bodySize
-                        color: "rgba(255, 255, 255, 0.8)"
+                        color: "#CCFFFFFF"
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                     }
