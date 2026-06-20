@@ -15,18 +15,25 @@ TextField {
     color: textColor
     font.family: Theme.fonts.body
     font.pixelSize: Theme.fonts.bodySize
-    placeholderTextColor: Theme.colors.muted
+    placeholderTextColor: Theme.colors.textMuted
+    leftPadding: Theme.spacing.md
+    rightPadding: Theme.spacing.md
+    topPadding: Theme.spacing.sm
+    bottomPadding: Theme.spacing.sm
 
     background: Rectangle {
-        implicitWidth: 200
-        implicitHeight: 40
+        implicitWidth: 320
+        implicitHeight: 48
         color: control.bgColor
         border.color: control.activeFocus ? control.focusColor : control.borderColor
-        border.width: control.activeFocus ? 2 : 1
+        border.width: 1
         radius: control.radius
 
         Behavior on border.color {
-            ColorAnimation { duration: 200 }
+            ColorAnimation { duration: 300; easing.type: Easing.OutQuart }
+        }
+        Behavior on color {
+            ColorAnimation { duration: 300; easing.type: Easing.OutQuart }
         }
     }
 }

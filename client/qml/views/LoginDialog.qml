@@ -1,123 +1,48 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Shapes
 import "../styles"
 import "../components"
 
 Rectangle {
     id: root
-    color: Theme.colors.canvas
+    color: Theme.colors.background
     clip: true
 
-    // --- ANIMATED GRASSLAND / FLUID HILLS BACKGROUND ---
-    
-    // Background Orb 1 (Mint)
-    Rectangle {
-        width: 800; height: 800; radius: 400
-        color: Theme.colors.orb2
-        opacity: 0.5
-        x: -200; y: -200
-        SequentialAnimation on x {
-            loops: Animation.Infinite
-            NumberAnimation { to: 100; duration: 25000; easing.type: Easing.InOutSine }
-            NumberAnimation { to: -200; duration: 22000; easing.type: Easing.InOutSine }
-        }
-    }
-    
-    // Background Orb 2 (Light Emerald)
-    Rectangle {
-        width: 1000; height: 1000; radius: 500
-        color: Theme.colors.orb1
-        opacity: 0.3
-        x: parent.width - 600; y: parent.height - 400
-        SequentialAnimation on y {
-            loops: Animation.Infinite
-            NumberAnimation { to: parent.height - 700; duration: 28000; easing.type: Easing.InOutSine }
-            NumberAnimation { to: parent.height - 400; duration: 24000; easing.type: Easing.InOutSine }
-        }
-    }
-
-    // "Moving Grassland" - Parallax overlapping sine waves using QtQuick.Shapes
-    // Back Hill (Darker Emerald)
-    Shape {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        height: 300
-        opacity: 0.6
-
-        ShapePath {
-            strokeWidth: 0
-            fillColor: Theme.colors.orb3
-            startX: 0; startY: 300
-            PathLine { x: 0; y: 150 }
-            PathCubic { 
-                id: wave1
-                x: root.width; y: 180
-                control1X: root.width * 0.3; control1Y: 50
-                control2X: root.width * 0.7; control2Y: 300
+    // --- MAJESTIC INK-WASH GRASSLAND BACKGROUND ---
+    Item {
+        anchors.fill: parent
+        
+        Image {
+            id: bgImage
+            source: "qrc:/images/ink_wash_grassland.png"
+            fillMode: Image.PreserveAspectCrop
+            width: parent.width + 100
+            height: parent.height + 100
+            x: -50; y: -50
+            opacity: 0.8
+            
+            // Subtle breathing/wind motion
+            SequentialAnimation on x {
+                loops: Animation.Infinite
+                NumberAnimation { to: 0; duration: 40000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: -50; duration: 35000; easing.type: Easing.InOutSine }
             }
-            PathLine { x: root.width; y: 300 }
-            PathLine { x: 0; y: 300 }
-        }
-
-        SequentialAnimation {
-            running: true
-            loops: Animation.Infinite
-            ParallelAnimation {
-                NumberAnimation { target: wave1; property: "control1Y"; to: 250; duration: 8000; easing.type: Easing.InOutSine }
-                NumberAnimation { target: wave1; property: "control2Y"; to: 100; duration: 9000; easing.type: Easing.InOutSine }
-                NumberAnimation { target: wave1; property: "y"; to: 120; duration: 8500; easing.type: Easing.InOutSine }
-            }
-            ParallelAnimation {
-                NumberAnimation { target: wave1; property: "control1Y"; to: 50; duration: 8000; easing.type: Easing.InOutSine }
-                NumberAnimation { target: wave1; property: "control2Y"; to: 300; duration: 9000; easing.type: Easing.InOutSine }
-                NumberAnimation { target: wave1; property: "y"; to: 180; duration: 8500; easing.type: Easing.InOutSine }
+            SequentialAnimation on scale {
+                loops: Animation.Infinite
+                NumberAnimation { to: 1.05; duration: 38000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 1.0; duration: 42000; easing.type: Easing.InOutSine }
             }
         }
-    }
-    
-    // Front Hill (Primary Accent)
-    Shape {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        height: 200
-        opacity: 0.9
 
-        ShapePath {
-            strokeWidth: 0
-            fillColor: Theme.colors.accent
-            startX: 0; startY: 200
-            PathLine { x: 0; y: 120 }
-            PathCubic { 
-                id: wave2
-                x: root.width; y: 100
-                control1X: root.width * 0.4; control1Y: 250
-                control2X: root.width * 0.8; control2Y: -20
-            }
-            PathLine { x: root.width; y: 200 }
-            PathLine { x: 0; y: 200 }
-        }
-
-        SequentialAnimation {
-            running: true
-            loops: Animation.Infinite
-            ParallelAnimation {
-                NumberAnimation { target: wave2; property: "control1Y"; to: -20; duration: 7000; easing.type: Easing.InOutSine }
-                NumberAnimation { target: wave2; property: "control2Y"; to: 200; duration: 6500; easing.type: Easing.InOutSine }
-                NumberAnimation { target: wave2; property: "y"; to: 160; duration: 7500; easing.type: Easing.InOutSine }
-            }
-            ParallelAnimation {
-                NumberAnimation { target: wave2; property: "control1Y"; to: 250; duration: 7000; easing.type: Easing.InOutSine }
-                NumberAnimation { target: wave2; property: "control2Y"; to: -20; duration: 6500; easing.type: Easing.InOutSine }
-                NumberAnimation { target: wave2; property: "y"; to: 100; duration: 7500; easing.type: Easing.InOutSine }
-            }
+        // Minimal Dark / Film Grain Noise overlay
+        Rectangle {
+            anchors.fill: parent
+            color: "#05000000" // Extremely subtle vignette/darkening
         }
     }
 
-    // --- HIGH-END LOGIN CARD (Double-Bezel Architecture) ---
+    // --- HIGH-END LOGIN CARD (Ethereal Frosted Glass) ---
     Rectangle {
         id: loginCard
         anchors.centerIn: parent
@@ -144,14 +69,14 @@ Rectangle {
             radius: Theme.radius.lg
             color: Theme.colors.surface
             border.width: 1
-            border.color: "#CCFFFFFF"
+            border.color: Theme.colors.border
             
             // 2. Inner Core
             Rectangle {
                 anchors.fill: parent
                 anchors.margins: 10 // The "Double-Bezel" Gap
                 radius: Theme.radius.lg - 10
-                color: Theme.colors.surfaceDeep
+                color: Theme.colors.surfaceHover
                 clip: true
 
                 RowLayout {
@@ -179,11 +104,11 @@ Rectangle {
                                     id: eyebrowText
                                     anchors.centerIn: parent
                                     text: "LINUXCHAT 2.0"
-                                    font.family: Theme.fonts.caption
+                                    font.family: Theme.fonts.body
                                     font.pixelSize: 10
                                     font.weight: Font.Bold
                                     font.letterSpacing: 2
-                                    color: "#FFFFFF"
+                                    color: "#121110"
                                 }
                             }
 
@@ -191,9 +116,9 @@ Rectangle {
 
                             // Massive Typography
                             Text {
-                                text: "Breathe.\nConnect.\nThrive."
-                                font.family: Theme.fonts.title
-                                font.pixelSize: Theme.fonts.titleSize
+                                text: "Silence.\nVastness.\nConnection."
+                                font.family: Theme.fonts.display
+                                font.pixelSize: Theme.fonts.h1
                                 font.weight: Font.Medium
                                 color: Theme.colors.text
                                 lineHeight: 1.1
@@ -202,7 +127,7 @@ Rectangle {
                             Item { Layout.fillHeight: true }
 
                             Text {
-                                text: "Experience the tranquility of secure, real-time communication. Find your oasis."
+                                text: "Experience the tranquility of secure, real-time communication. Find your peace."
                                 font.family: Theme.fonts.body
                                 font.pixelSize: Theme.fonts.bodySize
                                 color: Theme.colors.textMuted
@@ -218,7 +143,7 @@ Rectangle {
                         Layout.topMargin: 64
                         Layout.bottomMargin: 64
                         width: 1
-                        color: "#1A064E3B" // Very subtle dark line
+                        color: Theme.colors.border
                     }
 
                     // Right Side: Inputs & Actions
@@ -228,12 +153,12 @@ Rectangle {
 
                         ColumnLayout {
                             anchors.centerIn: parent
-                            width: 300
-                            spacing: Theme.space.md
+                            width: 320
+                            spacing: Theme.spacing.md
 
                             Text { 
-                                text: "Enter the Oasis"
-                                font.family: Theme.fonts.title
+                                text: "Enter the Void"
+                                font.family: Theme.fonts.display
                                 font.pixelSize: 28
                                 font.weight: Font.Medium
                                 color: Theme.colors.text
@@ -263,7 +188,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 height: 56
                                 radius: 28
-                                color: Theme.colors.accent
+                                color: Theme.colors.text
                                 
                                 property bool isHovered: false
                                 property bool isPressed: false
@@ -291,7 +216,7 @@ Rectangle {
                                     anchors.fill: parent
                                     radius: parent.radius
                                     color: "#000000"
-                                    opacity: loginBtnContainer.isHovered ? 0.15 : 0.0
+                                    opacity: loginBtnContainer.isHovered ? 0.05 : 0.0
                                     Behavior on opacity { NumberAnimation { duration: 300 } }
                                 }
 
@@ -303,7 +228,7 @@ Rectangle {
                                     Text {
                                         Layout.fillWidth: true
                                         text: "Connect"
-                                        color: "#FFFFFF"
+                                        color: Theme.colors.background
                                         font.family: Theme.fonts.body
                                         font.pixelSize: 16
                                         font.weight: Font.DemiBold
@@ -313,12 +238,12 @@ Rectangle {
                                     // Button-in-Button trailing icon
                                     Rectangle {
                                         width: 40; height: 40; radius: 20
-                                        color: "#33FFFFFF"
+                                        color: Theme.colors.background
                                         
                                         Text {
                                             anchors.centerIn: parent
                                             text: "→"
-                                            color: "#FFFFFF"
+                                            color: Theme.colors.text
                                             font.pixelSize: 18
                                             font.weight: Font.Bold
                                         }
@@ -341,12 +266,12 @@ Rectangle {
                                 Text {
                                     text: "New traveler?"
                                     color: Theme.colors.textMuted
-                                    font.family: Theme.fonts.caption
+                                    font.family: Theme.fonts.body
                                 }
                                 Text {
                                     text: "Create an account"
                                     color: Theme.colors.accent
-                                    font.family: Theme.fonts.caption
+                                    font.family: Theme.fonts.body
                                     font.weight: Font.Bold
                                     
                                     MouseArea {
@@ -362,9 +287,9 @@ Rectangle {
                                 Layout.fillWidth: true
                                 horizontalAlignment: Text.AlignHCenter
                                 text: loginController.statusText
-                                font.family: Theme.fonts.caption
+                                font.family: Theme.fonts.body
                                 font.pixelSize: Theme.fonts.captionSize
-                                color: loginController.isError ? Theme.colors.danger : Theme.colors.accent
+                                color: loginController.isError ? Theme.colors.error : Theme.colors.accent
                                 visible: text.length > 0 
                             }
                         }
