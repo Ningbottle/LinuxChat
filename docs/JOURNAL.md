@@ -30,6 +30,12 @@ Important: (add especially important remarks here; can be omitted if there aren'
 
 ## ENTRIES (LATEST ON TOP)
 
+[2026-06-19]
+Context: CDD documentation initialization after the repo had a template `docs/INDEX.md`, current Chinese Ink QSS theme, and in-progress QML scaffolding. The workspace root `D:\ChatBox` contains templates/logs/skills, while the real Git repo is `D:\ChatBox\LinuxChat`.
+Decisions: Regenerate `docs/INDEX.md` in single-file mode because no `docs/index/` split exists and the refreshed inventory stays under the split threshold. Keep Widgets as the current runtime path, mark QML as scaffold only, and document friend/blacklist protocol messages as reserved rather than implemented.
+Findings: `client/CMakeLists.txt` conditionally registers a QML module through `HAS_QML`, but `client/main.cpp` still launches the Widgets login/main-window flow. `PING`/`PONG` heartbeat is implemented; friend/blacklist flows are not.
+Risks: Root `ARCHITECTURE.md`/`CONTRACT.md` remain compatibility summaries and can drift behind `docs/specs/blueprint.md`; treat blueprint + `docs/INDEX.md` as the primary CDD context.
+
 [2026-06-17]
 Context: Multi-agent / CDD follow-up after init to fix "TCP connect OK but immediate disconnect on first LOGIN/REGISTER" + unreliable cross-platform (Win client ↔ Linux server). Root causes documented in prd Known Issues + TODO Step 01-04.
 Decisions: Implement drain in recv_msgs (LT epoll safety), oversized clear+log, generation token in ClientSession+worker, EVP SHA256, client login timer + verbose disconnect logs. Preserve frame format + existing tests.

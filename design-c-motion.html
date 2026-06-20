@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BottleChat / 瓶子交流器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════
+   CSS Custom Properties & Color Schemes
+   ═══════════════════════════════════════════════ */
+:root {
+  --font-family: 'LXGW WenKai', sans-serif;
+
+  /* Scheme A: Gray Frost (default) */
+  --bg-start: #e8e8ec;
+  --bg-end: #d0d4de;
+  --sidebar-bg: rgba(255, 255, 255, 0.45);
+  --sidebar-border: rgba(255, 255, 255, 0.5);
+  --chat-bg: rgba(255, 255, 255, 0.3);
+  --card-bg: rgba(255, 255, 255, 0.55);
+  --card-border: rgba(255, 255, 255, 0.6);
+  --text-primary: #1a1a2e;
+  --text-secondary: #555570;
+  --text-tertiary: #8888a0;
+  --accent: #4a6cf7;
+  --accent-glow: rgba(74, 108, 247, 0.35);
+  --accent-light: rgba(74, 108, 247, 0.1);
+  --bubble-self: rgba(74, 108, 247, 0.88);
+  --bubble-self-text: #ffffff;
+  --bubble-other: rgba(255, 255, 255, 0.7);
+  --bubble-other-text: #1a1a2e;
+  --bubble-system: rgba(0, 0, 0, 0.06);
+  --bubble-system-text: #8888a0;
+  --hover-bg: rgba(255, 255, 255, 0.5);
+  --active-bg: rgba(74, 108, 247, 0.12);
+  --input-bg: rgba(255, 255, 255, 0.5);
+  --input-border: rgba(0, 0, 0, 0.08);
+  --input-focus-border: var(--accent);
+  --input-focus-glow: rgba(74, 108, 247, 0.2);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.14);
+  --blur-amount: 20px;
+  --drag-handle-color: rgba(0, 0, 0, 0.12);
+  --divider: rgba(0, 0, 0, 0.06);
+  --online-color: #22c55e;
+  --badge-bg: #ef4444;
+  --badge-text: #fff;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --scrollbar-track: transparent;
+  --send-btn-bg: var(--accent);
+  --send-btn-hover: #3b5de7;
+  --login-card-bg: rgba(255, 255, 255, 0.5);
+  --login-overlay: rgba(200, 200, 215, 0.6);
+  --toggle-bg: rgba(0, 0, 0, 0.08);
+  --toggle-knob: #fff;
+  --search-bg: rgba(0, 0, 0, 0.04);
+  --search-border: rgba(0, 0, 0, 0.06);
+}
+
+[data-scheme="B"] {
+  --bg-start: #c8d6e5;
+  --bg-end: #a0b8d0;
+  --sidebar-bg: rgba(200, 215, 235, 0.5);
+  --sidebar-border: rgba(200, 215, 235, 0.6);
+  --chat-bg: rgba(210, 225, 245, 0.3);
+  --card-bg: rgba(220, 230, 250, 0.55);
+  --card-border: rgba(200, 215, 235, 0.7);
+  --text-primary: #0f1b33;
+  --text-secondary: #3d5175;
+  --text-tertiary: #6b82a6;
+  --accent: #2563eb;
+  --accent-glow: rgba(37, 99, 235, 0.35);
+  --accent-light: rgba(37, 99, 235, 0.1);
+  --bubble-self: rgba(37, 99, 235, 0.92);
+  --bubble-self-text: #ffffff;
+  --bubble-other: rgba(255, 255, 255, 0.65);
+  --bubble-other-text: #0f1b33;
+  --bubble-system: rgba(0, 0, 0, 0.06);
+  --bubble-system-text: #6b82a6;
+  --hover-bg: rgba(200, 215, 235, 0.5);
+  --active-bg: rgba(37, 99, 235, 0.12);
+  --input-bg: rgba(220, 230, 250, 0.5);
+  --input-border: rgba(0, 0, 0, 0.08);
+  --input-focus-border: var(--accent);
+  --input-focus-glow: rgba(37, 99, 235, 0.25);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.15);
+  --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.16);
+  --drag-handle-color: rgba(0, 0, 0, 0.15);
+  --divider: rgba(0, 0, 0, 0.08);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.18);
+  --send-btn-bg: var(--accent);
+  --send-btn-hover: #1d4ed8;
+  --login-card-bg: rgba(220, 230, 250, 0.55);
+  --login-overlay: rgba(160, 180, 210, 0.7);
+  --toggle-bg: rgba(0, 0, 0, 0.1);
+  --search-bg: rgba(0, 0, 0, 0.05);
+  --search-border: rgba(0, 0, 0, 0.08);
+}
+
+/* ═══════════════════════════════════════════════
+   Reset & Base
+   ═══════════════════════════════════════════════ */
+*, *::before, *::after {
+  margin: 0; padding: 0; box-sizing: border-box;
+}
+
+html, body {
+  height: 100%; overflow: hidden;
+  font-family: var(--font-family);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Animated gradient background — 20s slow color shift */
+@keyframes bgShift {
+  0%, 100% { background-position: 0% 50%; }
+  25% { background-position: 100% 25%; }
+  50% { background-position: 100% 75%; }
+  75% { background-position: 0% 100%; }
+}
+
+body {
+  background: linear-gradient(135deg, var(--bg-start), var(--bg-end), var(--bg-start));
+  background-size: 400% 400%;
+  animation: bgShift 20s ease-in-out infinite;
+  transition: background 0.6s ease;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+
+/* ═══════════════════════════════════════════════
+   App Shell
+   ═══════════════════════════════════════════════ */
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+#app.visible { opacity: 1; }
+
+/* ═══════════════════════════════════════════════
+   Login Overlay — Frosted Glass Card
+   ═══════════════════════════════════════════════ */
+#login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--login-overlay);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition: backdrop-filter 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+              -webkit-backdrop-filter 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.5s ease;
+}
+#login-overlay.blurring {
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+}
+#login-overlay.hiding {
+  opacity: 0;
+  pointer-events: none;
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+}
+
+/* Login card entrance: fly up with spring physics */
+@keyframes loginFlyIn {
+  0% {
+    opacity: 0;
+    transform: translateY(120px) scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-12px) scale(1.02);
+  }
+  60% {
+    transform: translateY(5px) scale(0.995);
+  }
+  80% {
+    transform: translateY(-2px) scale(1.005);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.login-card {
+  background: var(--login-card-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 48px 40px;
+  width: 380px;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transform: translateY(120px) scale(0.85);
+}
+.login-card.animate-in {
+  animation: loginFlyIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.login-card h1 {
+  font-size: 26px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+.login-card .subtitle {
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-tertiary);
+  margin-bottom: 32px;
+}
+.login-card .logo {
+  text-align: center;
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0;
+  animation: none;
+}
+.login-card.animate-in .logo {
+  animation: logoPop 0.6s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes logoPop {
+  0% { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.login-field {
+  margin-bottom: 18px;
+}
+.login-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.login-field input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1.5px solid var(--input-border);
+  background: var(--input-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-family: var(--font-family);
+  font-size: 15px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.login-field input:focus {
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 3px var(--input-focus-glow);
+}
+.login-field input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Animation 8: Input focus glow expand */
+@keyframes inputGlow {
+  0% { box-shadow: 0 0 0 0px var(--input-focus-glow); }
+  100% { box-shadow: 0 0 0 4px var(--input-focus-glow); }
+}
+
+.login-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-family);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 0.2s ease,
+              box-shadow 0.2s ease;
+  margin-top: 8px;
+}
+.login-btn:hover {
+  transform: scale(1.03);
+  background: var(--send-btn-hover);
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+.login-btn:active {
+  transform: scale(0.97);
+}
+.login-card .hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 20px;
+}
+
+/* ═══════════════════════════════════════════════
+   Sidebar
+   ═══════════════════════════════════════════════ */
+.sidebar {
+  width: 280px;
+  min-width: 200px;
+  max-width: 500px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--sidebar-bg);
+  backdrop-filter: blur(var(--blur-amount));
+  -webkit-backdrop-filter: blur(var(--blur-amount));
+  border-right: 1px solid var(--sidebar-border);
+  position: relative;
+  flex-shrink: 0;
+  transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+}
+.sidebar.collapsed {
+  width: 0 !important;
+  min-width: 0;
+  border-right: none;
+}
+.sidebar.collapsed .sidebar-content {
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  opacity: 1;
+  transition: opacity 0.3s ease 0.05s;
+  min-width: 280px;
+}
+
+/* Sidebar header */
+.sidebar-header {
+  padding: 20px 16px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.sidebar-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.sidebar-toggle-btn {
+  width: 32px; height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: background 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+}
+.sidebar-toggle-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+/* Search */
+.search-box {
+  padding: 0 16px 12px;
+  flex-shrink: 0;
+}
+.search-box input {
+  width: 100%;
+  padding: 10px 14px 10px 36px;
+  border-radius: 10px;
+  border: 1.5px solid var(--search-border);
+  background: var(--search-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-family: var(--font-family);
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.search-box input:focus {
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 3px var(--input-focus-glow);
+}
+.search-box input::placeholder {
+  color: var(--text-tertiary);
+}
+.search-wrapper {
+  position: relative;
+}
+.search-wrapper svg {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+/* Conversation list */
+.conv-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px;
+}
+
+/* Animation 4: Sidebar hover — scale + shadow */
+.conv-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease-out,
+              box-shadow 0.2s ease-out,
+              background 0.2s ease;
+  position: relative;
+  user-select: none;
+}
+.conv-item:hover {
+  transform: scale(1.03);
+  box-shadow: var(--shadow-hover);
+  background: var(--hover-bg);
+}
+.conv-item:active {
+  transform: scale(1.01);
+}
+.conv-item.active {
+  background: var(--active-bg);
+}
+.conv-item.pinned::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  opacity: 0.6;
+}
+
+.conv-avatar {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  position: relative;
+  background: var(--accent-light);
+}
+
+/* Animation 6: Online dot pulse */
+@keyframes onlinePulse {
+  0%, 100% { transform: scale(0.8); opacity: 0.5; }
+  50% { transform: scale(1.2); opacity: 1; }
+}
+.online-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 12px;
+  height: 12px;
+  background: var(--online-color);
+  border-radius: 50%;
+  border: 2px solid var(--sidebar-bg);
+  animation: onlinePulse 2s ease-in-out infinite;
+}
+
+.conv-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.conv-name {
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.conv-preview {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.conv-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.conv-time {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* Animation 7: Unread badge — spring pop */
+@keyframes badgePop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.25); }
+  70% { transform: scale(0.9); }
+  85% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.unread-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--badge-bg);
+  color: var(--badge-text);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: badgePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Divider */
+.sidebar-divider {
+  height: 1px;
+  background: var(--divider);
+  margin: 8px 16px;
+  flex-shrink: 0;
+}
+
+/* User card at bottom */
+.user-card {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--divider);
+  flex-shrink: 0;
+}
+.user-card-avatar {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.user-card-info {
+  flex: 1;
+  min-width: 0;
+}
+.user-card-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+.user-card-status {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* Drag handle */
+.drag-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+  transition: background 0.2s ease;
+}
+.drag-handle:hover,
+.drag-handle.active {
+  background: var(--drag-handle-color);
+}
+.drag-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 40px;
+  border-radius: 1px;
+  background: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.drag-handle:hover::after,
+.drag-handle.active::after {
+  opacity: 0.4;
+}
+
+/* ═══════════════════════════════════════════════
+   Chat Area
+   ═══════════════════════════════════════════════ */
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--chat-bg);
+  backdrop-filter: blur(var(--blur-amount));
+  -webkit-backdrop-filter: blur(var(--blur-amount));
+  min-width: 0;
+  position: relative;
+}
+
+/* Chat header */
+.chat-header {
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--divider);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.15);
+}
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.expand-sidebar-btn {
+  width: 36px; height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: background 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+}
+.expand-sidebar-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+.sidebar.collapsed ~ .chat-area .expand-sidebar-btn {
+  display: flex;
+}
+.chat-header-avatar {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  background: var(--accent-light);
+}
+.chat-header-info h3 {
+  font-size: 16px;
+  font-weight: 700;
+}
+.chat-header-info span {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* Scheme toggle */
+.scheme-toggle {
+  width: 56px; height: 30px;
+  border-radius: 15px;
+  border: none;
+  background: var(--toggle-bg);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.3s ease;
+  flex-shrink: 0;
+}
+.scheme-toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--toggle-knob);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+[data-scheme="B"] .scheme-toggle::after {
+  transform: translateX(26px);
+}
+
+/* Messages area */
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scroll-behavior: smooth;
+}
+
+/* Message bubbles */
+.message-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 70%;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.message-row.self {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+.message-row.other {
+  align-self: flex-start;
+}
+.message-row.system {
+  align-self: center;
+  max-width: 80%;
+}
+
+.msg-avatar {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  background: var(--accent-light);
+}
+
+.msg-bubble {
+  padding: 10px 16px;
+  border-radius: 16px;
+  font-size: 15px;
+  line-height: 1.6;
+  word-break: break-word;
+  position: relative;
+}
+.message-row.self .msg-bubble {
+  background: var(--bubble-self);
+  color: var(--bubble-self-text);
+  border-bottom-right-radius: 4px;
+}
+.message-row.other .msg-bubble {
+  background: var(--bubble-other);
+  color: var(--bubble-other-text);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom-left-radius: 4px;
+}
+.message-row.system .msg-bubble {
+  background: var(--bubble-system);
+  color: var(--bubble-system-text);
+  font-size: 13px;
+  text-align: center;
+  border-radius: 20px;
+  padding: 6px 16px;
+}
+
+.msg-time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  white-space: nowrap;
+}
+.message-row.self .msg-time { text-align: right; }
+
+/* Animation 2: Message send — slide up with overshoot */
+@keyframes messageSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.01);
+  }
+  70% {
+    transform: translateY(3px) scale(0.998);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.message-row.send-animate {
+  animation: messageSlideUp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Animation 3: Conversation switch — old fade out, new stagger in */
+@keyframes msgFadeOut {
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+@keyframes msgStaggerIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.message-row.fade-out {
+  animation: msgFadeOut 0.2s ease forwards;
+}
+.message-row.stagger-in {
+  opacity: 0;
+  animation: msgStaggerIn 0.3s ease forwards;
+}
+
+/* Typing indicator */
+.typing-indicator {
+  display: none;
+  align-self: flex-start;
+  padding: 0 12px;
+}
+.typing-indicator.visible { display: flex; align-items: center; gap: 8px; }
+.typing-dots {
+  display: flex;
+  gap: 4px;
+  padding: 10px 16px;
+  background: var(--bubble-other);
+  border-radius: 16px;
+  border-bottom-left-radius: 4px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.typing-dots span {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  animation: typingBounce 1.4s ease-in-out infinite;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+/* Input area */
+.input-area {
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--divider);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+.input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background: var(--input-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1.5px solid var(--input-border);
+  border-radius: 16px;
+  padding: 8px 8px 8px 18px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.input-wrapper:focus-within {
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 3px var(--input-focus-glow);
+}
+.input-wrapper textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 15px;
+  color: var(--text-primary);
+  resize: none;
+  outline: none;
+  min-height: 24px;
+  max-height: 120px;
+  line-height: 1.5;
+  padding: 4px 0;
+}
+.input-wrapper textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Animation 9: Send button — hover scale+glow, click bounce */
+.send-btn {
+  width: 40px; height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: var(--send-btn-bg);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.2s ease,
+              background 0.2s ease;
+}
+.send-btn:hover {
+  transform: scale(1.1);
+  background: var(--send-btn-hover);
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+.send-btn:active {
+  transform: scale(0.9);
+}
+.send-btn.bounce-back {
+  animation: sendBounce 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes sendBounce {
+  0% { transform: scale(0.9); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+.input-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* ═══════════════════════════════════════════════
+   Responsive helpers
+   ═══════════════════════════════════════════════ */
+@media (max-width: 700px) {
+  .sidebar { width: 100% !important; max-width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ LOGIN OVERLAY ═══════════ -->
+<div id="login-overlay">
+  <div class="login-card" id="login-card">
+    <div class="logo">🍾</div>
+    <h1>BottleChat</h1>
+    <p class="subtitle">瓶子交流器 — 跨越距离的对话</p>
+    <div class="login-field">
+      <label for="login-user">用户名</label>
+      <input type="text" id="login-user" placeholder="请输入用户名" autocomplete="off" value="我自己">
+    </div>
+    <div class="login-field">
+      <label for="login-pass">密码</label>
+      <input type="password" id="login-pass" placeholder="请输入密码" value="demo">
+    </div>
+    <button class="login-btn" id="login-btn">进入聊天</button>
+    <p class="hint">演示模式 — 点击进入即可体验</p>
+  </div>
+</div>
+
+<!-- ═══════════ APP SHELL ═══════════ -->
+<div id="app">
+
+  <!-- ──── SIDEBAR ──── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-content">
+      <div class="sidebar-header">
+        <h2>💬 消息</h2>
+        <button class="sidebar-toggle-btn" id="collapse-btn" title="收起侧栏">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="11 17 6 12 11 7"></polyline>
+            <polyline points="18 17 13 12 18 7"></polyline>
+          </svg>
+        </button>
+      </div>
+      <div class="search-box">
+        <div class="search-wrapper">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" placeholder="搜索会话..." id="search-input">
+        </div>
+      </div>
+      <div class="conv-list" id="conv-list">
+        <!-- Populated by JS -->
+      </div>
+      <div class="sidebar-divider"></div>
+      <div class="user-card">
+        <div class="user-card-avatar">🙂</div>
+        <div class="user-card-info">
+          <div class="user-card-name" id="user-card-name">我自己</div>
+          <div class="user-card-status">在线</div>
+        </div>
+      </div>
+    </div>
+    <div class="drag-handle" id="drag-handle"></div>
+  </aside>
+
+  <!-- ──── CHAT AREA ──── -->
+  <main class="chat-area">
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <button class="expand-sidebar-btn" id="expand-btn" title="展开侧栏">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+        <div class="chat-header-avatar" id="chat-header-avatar">🌐</div>
+        <div class="chat-header-info">
+          <h3 id="chat-header-name">公共聊天室</h3>
+          <span id="chat-header-status">12 位成员在线</span>
+        </div>
+      </div>
+      <button class="scheme-toggle" id="scheme-toggle" title="切换配色方案"></button>
+    </div>
+
+    <div class="messages-container" id="messages-container">
+      <!-- Populated by JS -->
+    </div>
+
+    <div class="typing-indicator" id="typing-indicator">
+      <div class="typing-dots">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-wrapper">
+        <textarea id="msg-input" placeholder="输入消息..." rows="1"></textarea>
+        <button class="send-btn" id="send-btn" title="发送">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+      <div class="input-hint">按 Enter 发送 · Shift + Enter 换行</div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   Data
+   ═══════════════════════════════════════════════ */
+const conversations = [
+  {
+    id: 'public',
+    name: '公共聊天室',
+    avatar: '🌐',
+    pinned: true,
+    online: true,
+    status: '12 位成员在线',
+    unread: 3,
+    preview: '李梦琪: 今天的天气真好呢',
+    time: '刚刚',
+    messages: [
+      { type: 'system', text: '欢迎来到公共聊天室', time: '09:00' },
+      { sender: '陈晓雨', avatar: '🌸', self: false, text: '大家早上好！今天有什么计划吗？', time: '09:12' },
+      { sender: '张伟', avatar: '⚡', self: false, text: '准备去图书馆自习，期末考试快到了 😅', time: '09:15' },
+      { sender: 'self', avatar: '🙂', self: true, text: '我打算下午去操场跑步，天气不错', time: '09:18' },
+      { sender: '李梦琪', avatar: '🎨', self: false, text: '美术楼今天有个画展，有兴趣的可以来看看！', time: '09:22' },
+      { sender: 'self', avatar: '🙂', self: true, text: '听起来不错，几点开始？', time: '09:25' },
+      { sender: '李梦琪', avatar: '🎨', self: false, text: '下午两点，美术楼二楼展厅', time: '09:26' },
+      { sender: '王浩然', avatar: '🏀', self: false, text: '算我一个！正好打完球可以过去', time: '09:30' },
+      { sender: '李梦琪', avatar: '🎨', self: false, text: '今天的天气真好呢', time: '09:35' },
+    ]
+  },
+  {
+    id: 'chenxy',
+    name: '陈晓雨',
+    avatar: '🌸',
+    pinned: false,
+    online: true,
+    status: '在线',
+    unread: 1,
+    preview: '周末一起去爬山吧？',
+    time: '10:20',
+    messages: [
+      { sender: '陈晓雨', avatar: '🌸', self: false, text: '嗨，最近忙什么呢？', time: '10:00' },
+      { sender: 'self', avatar: '🙂', self: true, text: '在准备论文呢，有点焦头烂额', time: '10:05' },
+      { sender: '陈晓雨', avatar: '🌸', self: false, text: '加油！需要帮忙可以找我', time: '10:08' },
+      { sender: 'self', avatar: '🙂', self: true, text: '谢谢！对了，周末有空吗？', time: '10:12' },
+      { sender: '陈晓雨', avatar: '🌸', self: false, text: '周末一起去爬山吧？', time: '10:20' },
+    ]
+  },
+  {
+    id: 'zhangw',
+    name: '张伟',
+    avatar: '⚡',
+    pinned: false,
+    online: false,
+    status: '最后在线 2小时前',
+    unread: 0,
+    preview: '好的，明天见',
+    time: '昨天',
+    messages: [
+      { sender: 'self', avatar: '🙂', self: true, text: '明天图书馆见？', time: '18:30' },
+      { sender: '张伟', avatar: '⚡', self: false, text: '没问题，几点？', time: '18:45' },
+      { sender: 'self', avatar: '🙂', self: true, text: '早上九点，三楼自习室', time: '18:50' },
+      { sender: '张伟', avatar: '⚡', self: false, text: '好的，明天见', time: '19:00' },
+    ]
+  },
+  {
+    id: 'limq',
+    name: '李梦琪',
+    avatar: '🎨',
+    pinned: false,
+    online: true,
+    status: '在线',
+    unread: 2,
+    preview: '我发了几张作品给你看看',
+    time: '08:55',
+    messages: [
+      { sender: '李梦琪', avatar: '🎨', self: false, text: '最近在画一组新的水彩系列', time: '08:30' },
+      { sender: 'self', avatar: '🙂', self: true, text: '哇，期待看到成品！', time: '08:35' },
+      { sender: '李梦琪', avatar: '🎨', self: false, text: '我发了几张作品给你看看', time: '08:55' },
+    ]
+  },
+  {
+    id: 'wanghr',
+    name: '王浩然',
+    avatar: '🏀',
+    pinned: false,
+    online: true,
+    status: '在线',
+    unread: 0,
+    preview: '下次再约！',
+    time: '周三',
+    messages: [
+      { sender: '王浩然', avatar: '🏀', self: false, text: '下午打球吗？', time: '14:00' },
+      { sender: 'self', avatar: '🙂', self: true, text: '今天不行，有个作业要交', time: '14:10' },
+      { sender: '王浩然', avatar: '🏀', self: false, text: '下次再约！', time: '14:12' },
+    ]
+  },
+  {
+    id: 'liusy',
+    name: '刘思远',
+    avatar: '📚',
+    pinned: false,
+    online: false,
+    status: '最后在线 昨天',
+    unread: 0,
+    preview: '论文写得怎么样了？',
+    time: '周二',
+    messages: [
+      { sender: '刘思远', avatar: '📚', self: false, text: '论文写得怎么样了？', time: '20:30' },
+      { sender: 'self', avatar: '🙂', self: true, text: '还在改第三章，参考文献太难找了', time: '20:45' },
+      { sender: '刘思远', avatar: '📚', self: false, text: '我可以分享一些数据库给你', time: '20:50' },
+      { sender: 'self', avatar: '🙂', self: true, text: '太好了，谢谢！', time: '20:55' },
+    ]
+  }
+];
+
+/* ═══════════════════════════════════════════════
+   State
+   ═══════════════════════════════════════════════ */
+let activeConvId = 'public';
+let sidebarCollapsed = false;
+let schemeB = false;
+
+/* ═══════════════════════════════════════════════
+   DOM References
+   ═══════════════════════════════════════════════ */
+const $app = document.getElementById('app');
+const $loginOverlay = document.getElementById('login-overlay');
+const $loginCard = document.getElementById('login-card');
+const $loginBtn = document.getElementById('login-btn');
+const $loginUser = document.getElementById('login-user');
+const $sidebar = document.getElementById('sidebar');
+const $convList = document.getElementById('conv-list');
+const $messages = document.getElementById('messages-container');
+const $msgInput = document.getElementById('msg-input');
+const $sendBtn = document.getElementById('send-btn');
+const $collapseBtn = document.getElementById('collapse-btn');
+const $expandBtn = document.getElementById('expand-btn');
+const $schemeToggle = document.getElementById('scheme-toggle');
+const $chatHeaderName = document.getElementById('chat-header-name');
+const $chatHeaderAvatar = document.getElementById('chat-header-avatar');
+const $chatHeaderStatus = document.getElementById('chat-header-status');
+const $userCardName = document.getElementById('user-card-name');
+const $dragHandle = document.getElementById('drag-handle');
+const $typingIndicator = document.getElementById('typing-indicator');
+const $searchInput = document.getElementById('search-input');
+
+/* ═══════════════════════════════════════════════
+   Login Flow
+   ═══════════════════════════════════════════════ */
+function initLogin() {
+  // Trigger background blur
+  requestAnimationFrame(() => {
+    $loginOverlay.classList.add('blurring');
+    // Trigger card fly-in after a short delay
+    setTimeout(() => {
+      $loginCard.classList.add('animate-in');
+    }, 200);
+  });
+}
+
+$loginBtn.addEventListener('click', doLogin);
+$loginUser.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+function doLogin() {
+  const username = $loginUser.value.trim() || '我自己';
+  $userCardName.textContent = username;
+  document.querySelector('.user-card-name').textContent = username;
+
+  // Animate card out then overlay out
+  $loginCard.style.transition = 'transform 0.4s cubic-bezier(0.55, 0, 1, 0.45), opacity 0.3s ease';
+  $loginCard.style.transform = 'translateY(-40px) scale(0.95)';
+  $loginCard.style.opacity = '0';
+
+  setTimeout(() => {
+    $loginOverlay.classList.add('hiding');
+    $app.classList.add('visible');
+    renderConversations();
+    switchConversation('public', false);
+  }, 300);
+
+  setTimeout(() => {
+    $loginOverlay.style.display = 'none';
+  }, 800);
+}
+
+/* ═══════════════════════════════════════════════
+   Render Conversations
+   ═══════════════════════════════════════════════ */
+function renderConversations(filter = '') {
+  $convList.innerHTML = '';
+  const filtered = conversations.filter(c =>
+    c.name.toLowerCase().includes(filter.toLowerCase())
+  );
+  filtered.forEach(conv => {
+    const el = document.createElement('div');
+    el.className = 'conv-item' +
+      (conv.id === activeConvId ? ' active' : '') +
+      (conv.pinned ? ' pinned' : '');
+    el.dataset.id = conv.id;
+    el.innerHTML = `
+      <div class="conv-avatar">
+        ${conv.avatar}
+        ${conv.online ? '<span class="online-dot"></span>' : ''}
+      </div>
+      <div class="conv-info">
+        <div class="conv-name">${conv.name}</div>
+        <div class="conv-preview">${conv.preview}</div>
+      </div>
+      <div class="conv-meta">
+        <span class="conv-time">${conv.time}</span>
+        ${conv.unread > 0 ? `<span class="unread-badge">${conv.unread}</span>` : ''}
+      </div>
+    `;
+    el.addEventListener('click', () => switchConversation(conv.id));
+    $convList.appendChild(el);
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   Switch Conversation (Animation 3)
+   ═══════════════════════════════════════════════ */
+function switchConversation(id, animate = true) {
+  if (id === activeConvId && animate) return;
+  activeConvId = id;
+  const conv = conversations.find(c => c.id === id);
+  if (!conv) return;
+
+  // Update header
+  $chatHeaderName.textContent = conv.name;
+  $chatHeaderAvatar.textContent = conv.avatar;
+  $chatHeaderStatus.textContent = conv.status;
+
+  // Update active state in list
+  document.querySelectorAll('.conv-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === id);
+  });
+
+  // Clear unread
+  conv.unread = 0;
+  const badge = document.querySelector(`.conv-item[data-id="${id}"] .unread-badge`);
+  if (badge) badge.remove();
+
+  if (animate) {
+    // Fade out old messages
+    const oldMsgs = $messages.querySelectorAll('.message-row');
+    oldMsgs.forEach(el => el.classList.add('fade-out'));
+
+    setTimeout(() => {
+      renderMessages(conv, true);
+    }, 200);
+  } else {
+    renderMessages(conv, false);
+  }
+}
+
+function renderMessages(conv, stagger = false) {
+  $messages.innerHTML = '';
+
+  conv.messages.forEach((msg, i) => {
+    const row = document.createElement('div');
+    row.className = 'message-row ' + (msg.type === 'system' ? 'system' : (msg.self ? 'self' : 'other'));
+
+    if (stagger) {
+      row.classList.add('stagger-in');
+      row.style.animationDelay = (i * 50) + 'ms';
+    }
+
+    if (msg.type === 'system') {
+      row.innerHTML = `<div class="msg-bubble">${msg.text}</div>`;
+    } else {
+      row.innerHTML = `
+        ${!msg.self ? `<div class="msg-avatar">${msg.avatar}</div>` : ''}
+        <div>
+          <div class="msg-bubble">${msg.text}</div>
+          <div class="msg-time">${msg.time}</div>
+        </div>
+      `;
+    }
+    $messages.appendChild(row);
+  });
+
+  // Animation 10: Smooth scroll to bottom
+  requestAnimationFrame(() => {
+    $messages.scrollTo({ top: $messages.scrollHeight, behavior: 'smooth' });
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   Send Message (Animation 2)
+   ═══════════════════════════════════════════════ */
+function sendMessage() {
+  const text = $msgInput.value.trim();
+  if (!text) return;
+  $msgInput.value = '';
+  autoResizeTextarea();
+
+  const conv = conversations.find(c => c.id === activeConvId);
+  if (!conv) return;
+
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+  const msg = { sender: 'self', avatar: '🙂', self: true, text, time };
+  conv.messages.push(msg);
+  conv.preview = text;
+  conv.time = '刚刚';
+
+  // Create message element with send animation
+  const row = document.createElement('div');
+  row.className = 'message-row self send-animate';
+  row.innerHTML = `
+    <div>
+      <div class="msg-bubble">${text}</div>
+      <div class="msg-time">${time}</div>
+    </div>
+  `;
+  $messages.appendChild(row);
+
+  // Animation 10: Smooth scroll to bottom
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      $messages.scrollTo({ top: $messages.scrollHeight, behavior: 'smooth' });
+    }, 50);
+  });
+
+  // Send button bounce animation
+  $sendBtn.classList.add('bounce-back');
+  setTimeout(() => $sendBtn.classList.remove('bounce-back'), 350);
+
+  // Update sidebar preview
+  renderConversations($searchInput.value);
+
+  // Simulate reply after a delay
+  if (activeConvId !== 'public') {
+    simulateReply(conv);
+  }
+}
+
+function simulateReply(conv) {
+  $typingIndicator.classList.add('visible');
+
+  const replies = [
+    '好的，收到！',
+    '明白了 😊',
+    '没问题！',
+    '哈哈，有意思',
+    '我想想...',
+    '说得对！',
+    '等我一下',
+    '回头聊~',
+  ];
+
+  setTimeout(() => {
+    $typingIndicator.classList.remove('visible');
+
+    const now = new Date();
+    const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+    const replyText = replies[Math.floor(Math.random() * replies.length)];
+    const msg = { sender: conv.name, avatar: conv.avatar, self: false, text: replyText, time };
+    conv.messages.push(msg);
+    conv.preview = replyText;
+    conv.time = '刚刚';
+
+    const row = document.createElement('div');
+    row.className = 'message-row other send-animate';
+    row.innerHTML = `
+      <div class="msg-avatar">${conv.avatar}</div>
+      <div>
+        <div class="msg-bubble">${replyText}</div>
+        <div class="msg-time">${time}</div>
+      </div>
+    `;
+    $messages.appendChild(row);
+
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        $messages.scrollTo({ top: $messages.scrollHeight, behavior: 'smooth' });
+      }, 50);
+    });
+
+    renderConversations($searchInput.value);
+  }, 1200 + Math.random() * 1000);
+}
+
+$sendBtn.addEventListener('click', sendMessage);
+
+/* ═══════════════════════════════════════════════
+   Textarea auto-resize + Enter to send
+   ═══════════════════════════════════════════════ */
+function autoResizeTextarea() {
+  $msgInput.style.height = 'auto';
+  $msgInput.style.height = Math.min($msgInput.scrollHeight, 120) + 'px';
+}
+
+$msgInput.addEventListener('input', autoResizeTextarea);
+$msgInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+/* ═══════════════════════════════════════════════
+   Sidebar Collapse/Expand (Animation 5)
+   ═══════════════════════════════════════════════ */
+$collapseBtn.addEventListener('click', () => {
+  sidebarCollapsed = true;
+  $sidebar.classList.add('collapsed');
+});
+$expandBtn.addEventListener('click', () => {
+  sidebarCollapsed = false;
+  $sidebar.classList.remove('collapsed');
+});
+
+/* ═══════════════════════════════════════════════
+   Resizable Sidebar (Drag Handle)
+   ═══════════════════════════════════════════════ */
+let isDragging = false;
+let startX, startWidth;
+
+$dragHandle.addEventListener('mousedown', e => {
+  isDragging = true;
+  startX = e.clientX;
+  startWidth = $sidebar.offsetWidth;
+  $dragHandle.classList.add('active');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - startX;
+  const newWidth = Math.min(500, Math.max(200, startWidth + dx));
+  $sidebar.style.width = newWidth + 'px';
+});
+
+document.addEventListener('mouseup', () => {
+  if (isDragging) {
+    isDragging = false;
+    $dragHandle.classList.remove('active');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+});
+
+/* ═══════════════════════════════════════════════
+   Scheme Toggle
+   ═══════════════════════════════════════════════ */
+$schemeToggle.addEventListener('click', () => {
+  schemeB = !schemeB;
+  document.documentElement.setAttribute('data-scheme', schemeB ? 'B' : '');
+});
+
+/* ═══════════════════════════════════════════════
+   Search
+   ═══════════════════════════════════════════════ */
+$searchInput.addEventListener('input', () => {
+  renderConversations($searchInput.value);
+});
+
+/* ═══════════════════════════════════════════════
+   Init
+   ═══════════════════════════════════════════════ */
+initLogin();
+</script>
+</body>
+</html>

@@ -1,6 +1,5 @@
 <RCC>
   <qresource prefix="/">
-    <file>style.qss</file>
     <file>fonts/LXGWWenKai-Regular.ttf</file>
     <file>fonts/LXGWWenKai-Medium.ttf</file>
     <file>fonts/Newsreader-VariableFont_opsz,wght.ttf</file>

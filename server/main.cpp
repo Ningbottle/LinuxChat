@@ -11,6 +11,7 @@
 #include "epoll_server.h"
 #include "database.h"
 #include "message_router.h"
+#include "log_utils.h"
 
 #include <iostream>
 #include <string>
@@ -21,18 +22,6 @@
 #include <chrono>
 #include <ctime>
 #include <sstream>
-
-/// Returns current time as "[YYYY-MM-DD HH:MM:SS.mmm]" for log lines.
-static std::string now_stamp() {
-    auto now = std::chrono::system_clock::now();
-    auto t   = std::chrono::system_clock::to_time_t(now);
-    auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(
-                   now.time_since_epoch()) % 1000;
-    std::ostringstream oss;
-    oss << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S")
-        << '.' << std::setfill('0') << std::setw(3) << ms.count();
-    return oss.str();
-}
 
 // ── Globals (for signal handler only) ───────────────────────────────
 
@@ -107,12 +96,22 @@ int main(int argc, char* argv[]) {
             });
         server.set_disconnect_handler(
             [&router](ClientSession& session) {
+                // Clean up login reservation if client disconnects mid-login
+                std::string pending = session.get_pending_login();
+                if (!pending.empty()) {
+                    router.cleanup_login_reservation(pending);
+                    session.clear_pending_login();
+                }
                 router.handle_logout(session);
             });
 
-        // Install signal handlers
-        signal(SIGINT,  signal_handler);
-        signal(SIGTERM, signal_handler);
+        // Install signal handlers (sigaction is POSIX-guaranteed, unlike signal())
+        struct sigaction sa{};
+        sa.sa_handler = signal_handler;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0;  // No SA_RESTART — we want epoll_wait to return EINTR
+        sigaction(SIGINT,  &sa, nullptr);
+        sigaction(SIGTERM, &sa, nullptr);
 
         // Run (blocks until stop() is called)
         server.run();

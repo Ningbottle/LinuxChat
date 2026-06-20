@@ -218,7 +218,7 @@ TEST_F(HandlerTest, UnauthenticatedSession_OnlyAllowsRegisterAndLogin) {
     EXPECT_FALSE(session.is_authenticated());
 
     // After setting username, it becomes authenticated
-    session.username = "alice";
+    session.set_username("alice");
     EXPECT_TRUE(session.is_authenticated());
 }
 

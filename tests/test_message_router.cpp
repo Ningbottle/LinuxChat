@@ -182,7 +182,7 @@ TEST_F(MessageRouterTest, Login_EmptyFields_SendsError) {
 TEST_F(MessageRouterTest, Session_InitiallyNotAuthenticated) {
     ClientSession session(42);
     EXPECT_FALSE(session.is_authenticated());
-    EXPECT_TRUE(session.username.empty());
+    EXPECT_TRUE(session.get_username().empty());
 }
 
 TEST_F(MessageRouterTest, Session_AuthenticatedAfterLogin) {
@@ -194,14 +194,14 @@ TEST_F(MessageRouterTest, Session_AuthenticatedAfterLogin) {
 
     // After successful login, session.username should be set
     EXPECT_TRUE(ps.session.is_authenticated());
-    EXPECT_EQ(ps.session.username, "alice");
+    EXPECT_EQ(ps.session.get_username(), "alice");
 }
 
 // ── Broadcast Tests ────────────────────────────────────────────────
 
 TEST_F(MessageRouterTest, Broadcast_StoresMessageInDatabase) {
     PipeSession ps;
-    ps.session.username = "alice";  // Authenticate
+    ps.session.set_username("alice");  // Authenticate
 
     json msg = {{"type", "BROADCAST"}, {"content", "hello everyone"}};
     router->handle_broadcast(ps.session, msg);
@@ -214,7 +214,7 @@ TEST_F(MessageRouterTest, Broadcast_StoresMessageInDatabase) {
 
 TEST_F(MessageRouterTest, Broadcast_EmptyContent_SendsError) {
     PipeSession ps;
-    ps.session.username = "alice";
+    ps.session.set_username("alice");
 
     json msg = {{"type", "BROADCAST"}, {"content", ""}};
     router->handle_broadcast(ps.session, msg);
@@ -230,7 +230,7 @@ TEST_F(MessageRouterTest, Broadcast_EmptyContent_SendsError) {
 
 TEST_F(MessageRouterTest, Private_TargetOffline_SendsError) {
     PipeSession ps;
-    ps.session.username = "alice";
+    ps.session.set_username("alice");
 
     json msg = {{"type", "PRIVATE"}, {"to", "bob"}, {"content", "hi"}};
     router->handle_private(ps.session, msg);
@@ -244,7 +244,7 @@ TEST_F(MessageRouterTest, Private_TargetOffline_SendsError) {
 
 TEST_F(MessageRouterTest, Private_EmptyTo_SendsError) {
     PipeSession ps;
-    ps.session.username = "alice";
+    ps.session.set_username("alice");
 
     json msg = {{"type", "PRIVATE"}, {"to", ""}, {"content", "hi"}};
     router->handle_private(ps.session, msg);
@@ -258,7 +258,7 @@ TEST_F(MessageRouterTest, Private_EmptyTo_SendsError) {
 
 TEST_F(MessageRouterTest, Private_EmptyContent_SendsError) {
     PipeSession ps;
-    ps.session.username = "alice";
+    ps.session.set_username("alice");
 
     json msg = {{"type", "PRIVATE"}, {"to", "bob"}, {"content", ""}};
     router->handle_private(ps.session, msg);
@@ -278,7 +278,7 @@ TEST_F(MessageRouterTest, HistoryReq_ReturnsStoredMessages) {
     db->store_message("bob", "__room__", "msg2", 2000);
 
     PipeSession ps;
-    ps.session.username = "alice";
+    ps.session.set_username("alice");
 
     json msg = {{"type", "HISTORY_REQ"}, {"to", "__room__"}};
     router->handle_history_req(ps.session, msg);
@@ -322,7 +322,7 @@ TEST_F(MessageRouterTest, Route_Unauthenticated_UnknownTypeRejected) {
 
 TEST_F(MessageRouterTest, Route_Authenticated_UnknownTypeRejected) {
     PipeSession ps;
-    ps.session.username = "alice";
+    ps.session.set_username("alice");
 
     json msg = {{"type", "UNKNOWN_TYPE"}, {"content", "data"}};
     router->route(ps.session, msg);
@@ -338,12 +338,12 @@ TEST_F(MessageRouterTest, Route_Authenticated_UnknownTypeRejected) {
 
 TEST_F(MessageRouterTest, Logout_ClearsSession) {
     PipeSession ps;
-    ps.session.username = "alice";
+    ps.session.set_username("alice");
 
     router->handle_logout(ps.session);
 
     EXPECT_FALSE(ps.session.is_authenticated());
-    EXPECT_TRUE(ps.session.username.empty());
+    EXPECT_TRUE(ps.session.get_username().empty());
 }
 
 TEST_F(MessageRouterTest, Logout_UnauthenticatedSession_NoOp) {
@@ -425,7 +425,7 @@ TEST_F(MessageRouterTest, FullFlow_Register_Login_Chat) {
 
 TEST_F(MessageRouterTest, FullFlow_MultipleBroadcasts) {
     PipeSession ps;
-    ps.session.username = "alice";
+    ps.session.set_username("alice");
 
     for (int i = 0; i < 5; ++i) {
         json msg = {{"type", "BROADCAST"}, {"content", "msg" + std::to_string(i)}};

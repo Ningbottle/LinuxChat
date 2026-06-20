@@ -20,12 +20,11 @@ make -j$(nproc)
 ### Client (Windows)
 ```powershell
 cd client
-mkdir build; cd build
-cmake .. -G "Visual Studio 18 2026" -DCMAKE_PREFIX_PATH="D:/Qt/6.8.0/msvc2022_64"
-cmake --build . --config Release
-cd Release
+cmake -B build -G "Visual Studio 18 2026" -DCMAKE_PREFIX_PATH="C:/Qt/6.8.3/msvc2022_64"
+cmake --build build --config Release
+cd build/Release
 ./linuxchat_client.exe          # 正常登录模式
-./linuxchat_client.exe --test-chat  # 跳过登录，直连 mock 数据测试 QSS
+./linuxchat_client.exe --test-chat  # 跳过登录，直连 mock 数据测试 QML
 ```
 
 ### Tests
@@ -66,7 +65,7 @@ ctest --output-on-failure
 
 | File | Role |
 |------|------|
-| `server/main.cpp` | Entry point, message handler (`handle_message`), SHA-256 (EVP API), signal handling |
+| `server/main.cpp` | Entry point, MessageRouter wiring, CLI parsing, signal handling |
 | `server/src/epoll_server.cpp` | epoll event loop, connection mgmt, recv drain, dispatch to workers |
 | `server/src/protocol.cpp` | Frame encode/decode, `recv_msgs` drain loop |
 | `server/include/client_session.h` | Per-connection state: fd, username, recv_buf, generation counter |
@@ -76,16 +75,20 @@ ctest --output-on-failure
 | `client/src/login_dialog.cpp` | Login/Register UI, connect + login timeout handling |
 | `client/src/main_window.cpp` | Sidebar + chat tabs layout, settings, globe panel |
 | `client/src/chat_view.cpp` | Message bubbles, input area, system messages |
+| `client/src/backend.cpp` | QML facade wrapping ChatClient for migration scaffold |
+| `client/src/message_model.cpp` | QML message list model |
+| `client/src/user_model.cpp` | QML online-user list model |
+| `client/qml/main.qml` | Minimal QML pipeline placeholder |
 | `client/resources/style.qss` | Single source of truth for all client UI styles |
 
 ## Conventions
 
 - **QSS-only styling**: All client styles via `style.qss` using QSS objectName selectors. Never use inline `setStyleSheet()`.
-- **Immutable files**: `protocol.cpp`, `thread_pool.cpp`, all server `.h` headers, `style.qss`, `resources.qrc`, `docs/protocol.md`.
+- **High-care files**: `protocol.cpp`, `thread_pool.cpp`, server public headers, `style.qss`, `resources.qrc`, `docs/protocol.md`. Check `docs/specs/blueprint.md` and `docs/INDEX.md` before changing their contracts.
 - **CDD workflow**: Follow AGENTS.md contract. Use TODO.md as execution index. Log non-trivial changes to docs/JOURNAL.md.
 - **Logging format**: `[Component] LEVEL EventName key1={value1}` — stable, grep-friendly.
 - **Shared JSON**: Both server and client use vendored `server/third_party/nlohmann/json.hpp`.
 
 ## Current State
 
-CDD Phase 1 审计发现 3 个连接层缺陷（Step 01-03 in TODO.md）：epoll drain 不足导致帧错位、fd 复用导致 worker 串话、SHA-256 使用废弃 API。Step 01-03 代码修复已完成，UAT 待验证。Step 05 QSS 重构进行中。
+TODO Step 01-07 已完成：epoll drain、fd generation guard、OpenSSL EVP SHA-256、MessageRouter、连接防重入、108 个测试和 Widgets/QSS UI 均已落地。当前客户端运行入口仍为 Qt Widgets + 水墨国风 QSS；Step 08 QML 迁移脚手架进行中（Backend、MessageModel、UserModel、`qml/main.qml`、`HAS_QML` 可选构建），尚未替代 `client/main.cpp` 的 Widgets 登录流程。`docs/INDEX.md` 已初始化为真实项目上下文索引。

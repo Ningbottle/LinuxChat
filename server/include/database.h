@@ -27,13 +27,17 @@ public:
 
     // ── User Management ──────────────────────────────────────────
 
-    /// Register a new user. `password_hash` should be SHA-256 hex string.
+    /// Register a new user. `password_hash` should be "salt_hex:hash_hex" format.
     /// @return true if user was created; false if username already exists or is empty.
     bool register_user(const std::string& username, const std::string& password_hash);
 
     /// Verify user credentials against stored hash.
     /// @return true if user exists AND password_hash matches stored hash.
     bool verify_user(const std::string& username, const std::string& password_hash);
+
+    /// Get the stored password hash for a user (for salted verification).
+    /// @return stored hash string, or empty string if user not found.
+    std::string get_stored_hash(const std::string& username);
 
     // ── Message Storage ──────────────────────────────────────────
 

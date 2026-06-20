@@ -1,16 +1,16 @@
 # Blueprint — LinuxChat (瓶子交流器 / Bottle Messenger)
 
-Status: Active | Version: 1.0 | Last Updated: 2026-06-17
+Status: Active | Version: 1.0 | Last Updated: 2026-06-19
 
 ## Purpose
 
-C/S 架构即时通讯系统:Linux epoll 服务端 ↔ Windows Qt6 客户端,JSON-over-TCP 自定义协议。本文整合原 `ARCHITECTURE.md`(系统结构)与 `CONTRACT.md`(模块契约),作为 CDD 架构契约的唯一来源。原文件已备份至 `docs/legacy/`。
+C/S 架构即时通讯系统:Linux epoll 服务端 ↔ Windows Qt6 客户端,JSON-over-TCP 自定义协议。当前客户端运行入口仍是 Qt Widgets + QSS,同时保留 QML/Qt Quick 迁移脚手架。本文整合原 `ARCHITECTURE.md`(系统结构)与 `CONTRACT.md`(模块契约),作为 CDD 架构契约的唯一来源。原文件已备份至 `docs/legacy/`。
 
 ## Architecture (high-level)
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
-│  Windows Client (Qt6 Widgets)                                   │
+│  Windows Client (Qt6 Widgets runtime + QML scaffold)             │
 │  ┌────────────┐  ┌──────────────┐  ┌────────────────────────┐   │
 │  │ LoginDialog │  │ ChatClient   │  │ MainWindow             │   │
 │  │ (login/reg) │  │ (TCP+JSON)   │  │ (sidebar+chatTabs)     │   │
@@ -44,7 +44,7 @@ C/S 架构即时通讯系统:Linux epoll 服务端 ↔ Windows Qt6 客户端,JSO
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-- **Components**: EpollServer(主线程 IO) / ThreadPool(N worker 业务) / Database(SQLite 持久化) / ClientSession(连接态) / ChatClient+LoginDialog+MainWindow(客户端)
+- **Components**: EpollServer(主线程 IO) / ThreadPool(N worker 业务) / MessageRouter(业务路由) / Database(SQLite 持久化) / ClientSession(连接态) / ChatClient+LoginDialog+MainWindow+ChatView(当前 Widgets 客户端) / Backend+MessageModel+UserModel+QML placeholder(迁移脚手架)
 - **Data flow**: 客户端 QTcpSocket → 服务端 epoll 就绪 → recv_msgs 组帧 → worker 处理 → Database 读写 → send_msg 回客户端
 - **Boundaries**: TCP 帧边界 = 4 字节大端长度 + JSON;session 边界 = fd;线程边界 = 主线程持有 sessions_mutex_,worker 通过 enqueue 解耦
 
@@ -70,10 +70,26 @@ class Database {
 };
 ```
 
-### MessageHandler 签名 (`server/main.cpp`)
+### Server routing (`server/main.cpp` + `server/include/message_router.h`)
 ```cpp
-void handle_message(ClientSession& session, const nlohmann::json& msg);
-void handle_disconnect(ClientSession& session);
+server.set_message_handler(
+    [&router](ClientSession& session, const nlohmann::json& msg) {
+        router.route(session, msg);
+    });
+server.set_disconnect_handler(
+    [&router](ClientSession& session) {
+        router.handle_logout(session);
+    });
+
+class MessageRouter {
+    void route(ClientSession& session, const nlohmann::json& msg);
+    void handle_register(ClientSession& session, const nlohmann::json& msg);
+    void handle_login(ClientSession& session, const nlohmann::json& msg);
+    void handle_logout(ClientSession& session);
+    void handle_broadcast(ClientSession& session, const nlohmann::json& msg);
+    void handle_private(ClientSession& session, const nlohmann::json& msg);
+    void handle_history_req(ClientSession& session, const nlohmann::json& msg);
+};
 ```
 
 ### ChatClient 信号 (`client/include/chat_client.h`)
@@ -95,8 +111,9 @@ notify_received(QString)
 ```text
 LinuxChat/
 ├── client/                 # Qt6 客户端 (Windows)
-│   ├── include/           # chat_client/login_dialog/main_window/chat_view/font_manager .h
+│   ├── include/           # chat_client/login_dialog/main_window/chat_view/font_manager + QML backend/models .h
 │   ├── src/               # 对应 .cpp
+│   ├── qml/               # QML 迁移脚手架;当前仅 main.qml 占位和空分层目录
 │   ├── resources/         # fonts/ images/ style.qss resources.qrc
 │   └── CMakeLists.txt
 ├── server/                 # epoll 服务端 (Linux)
@@ -136,7 +153,8 @@ cmake .. -DCMAKE_BUILD_TYPE=Release && make -j$(nproc)
 
 ### Setup — Windows 客户端
 ```powershell
-# 前置: Qt 6.8.0 msvc2022_64, Visual Studio 2022, CMake 3.16+
+# 前置: Qt 6.8.0+ msvc2022_64, Visual Studio 2022, CMake 3.16+
+# 可选: Qt Qml/Quick/QuickControls2 模块;缺失时自动走 Widgets-only 构建
 cd client; mkdir build; cd build
 cmake .. -G "Visual Studio 18 2026" -DCMAKE_PREFIX_PATH="D:/Qt/6.8.0/msvc2022_64"
 cmake --build . --config Release

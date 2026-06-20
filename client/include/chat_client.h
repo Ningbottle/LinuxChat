@@ -63,6 +63,9 @@ private slots:
     void on_ready_read();
 
 private:
+    /// Create fresh socket for each connection (avoids Windows fd reuse race).
+    void setup_socket();
+
     /// Send a JSON message with 4-byte BE length prefix.
     bool send_json(const QJsonObject& msg);
 
@@ -74,4 +77,5 @@ private:
 
     QTcpSocket* socket_ = nullptr;
     QByteArray  recv_buf_;  ///< Accumulates raw TCP data for frame extraction
+    bool        is_connecting_ = false;  ///< Guards against re-entrant connects
 };

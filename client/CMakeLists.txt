@@ -5,8 +5,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Find Qt6
-find_package(Qt6 REQUIRED COMPONENTS Widgets Network Svg)
+# Find Qt6 (QML-only, no Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Network Svg Qml Quick QuickControls2)
+
+# Qt6 QML policy (QTP0004: qmldir for extra directories)
+qt_policy(SET QTP0004 NEW)
 
 # Qt settings
 set(CMAKE_AUTOMOC ON)
@@ -29,17 +32,30 @@ add_executable(linuxchat_client
     ${RESOURCES}
 )
 
+# QML module — minimal, load from file system for debugging
+qt_add_qml_module(linuxchat_client
+    URI LinuxChat
+    VERSION 1.0
+    QML_FILES
+        qml/main.qml
+        qml/views/LoginDialog.qml
+        qml/views/ChatWindow.qml
+    NO_RESOURCE_TARGET_PATH
+)
+
 # Include paths
 target_include_directories(linuxchat_client PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/../server/third_party   # shared nlohmann/json
 )
 
-# Link Qt6
-target_link_libraries(linuxchat_client
-    Qt6::Widgets
+# Link Qt6 (no Widgets) — must use PRIVATE to avoid keyword conflict with qt_add_qml_module
+target_link_libraries(linuxchat_client PRIVATE
     Qt6::Network
     Qt6::Svg
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::QuickControls2
 )
 
 # High DPI support & deprecation guards

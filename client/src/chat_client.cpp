@@ -9,11 +9,62 @@
 #include <QDebug>
 #include <cstring>
 
+// Windows SO_LINGER support for forcing RST instead of FIN
+#ifdef Q_OS_WIN
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+#endif
+
 // ── Constructor ────────────────────────────────────────────────────
 
 ChatClient::ChatClient(QObject* parent)
     : QObject(parent)
 {
+    // Socket is created lazily in connect_to_server() to avoid Windows
+    // socket descriptor reuse race condition (see analysis report).
+    socket_ = nullptr;
+}
+
+// ── Private: Socket Setup ─────────────────────────────────────────
+
+void ChatClient::setup_socket() {
+    // Destroy old socket if exists
+    if (socket_) {
+        socket_->blockSignals(true);
+
+        // CRITICAL: Force RST instead of FIN before abort().
+        // On Windows, Qt's abort() calls closesocket() which sends FIN asynchronously.
+        // If the new socket reuses the same local port, the delayed FIN from the old
+        // socket corrupts the new connection (server sees recv n=0).
+        // Setting SO_LINGER {1,0} forces closesocket() to send RST immediately.
+#ifdef Q_OS_WIN
+        if (socket_->state() != QAbstractSocket::UnconnectedState) {
+            qintptr fd = socket_->socketDescriptor();
+            if (fd != -1) {
+                struct linger lg;
+                lg.l_onoff  = 1;
+                lg.l_linger = 0;
+                ::setsockopt(static_cast<SOCKET>(fd), SOL_SOCKET, SO_LINGER,
+                             reinterpret_cast<const char*>(&lg), sizeof(lg));
+            }
+        }
+#endif
+        socket_->abort();
+
+        // CRITICAL: Use synchronous delete, NOT deleteLater().
+        // deleteLater() defers destruction to the next event loop iteration.
+        // When connectToHost() runs, the event loop processes both the deferred
+        // delete of the old socket AND the new socket's connection events in
+        // undefined order. The old socket's destructor can corrupt Qt's internal
+        // socket engine state, killing the new connection.
+        // With abort() + SO_LINGER, the native fd is already closed and RST sent,
+        // so synchronous delete only cleans up the Qt object wrapper.
+        delete socket_;
+        socket_ = nullptr;
+    }
+
+    // Create fresh socket for each connection attempt
     socket_ = new QTcpSocket(this);
 
     connect(socket_, &QTcpSocket::connected,
@@ -29,43 +80,63 @@ ChatClient::ChatClient(QObject* parent)
 // ── Connection Management ──────────────────────────────────────────
 
 void ChatClient::connect_to_server(const QString& host, quint16 port) {
-    qDebug("[ChatClient] Connecting to %s:%d (socket state=%d)",
-           qUtf8Printable(host), port, socket_->state());
+    // Guard against re-entrant connection attempts
+    if (is_connecting_) {
+        qDebug("[ChatClient] connect_to_server: already connecting, ignoring re-entrant call");
+        return;
+    }
+    is_connecting_ = true;
+
+    qDebug("[ChatClient] Connecting to %s:%d", qUtf8Printable(host), port);
     recv_buf_.clear();
 
-    // CRITICAL: Block socket signals BEFORE abort() to prevent the abort()
-    // from emitting errorOccurred/disconnected signals that would race with
-    // the new connectToHost() call.  Without this, abort() triggers handlers
-    // in LoginDialog that re-enable the connect button and stop the timeout
-    // timer, creating a window for re-entrant connect_to_server() calls that
-    // cause the server to see "recv n=0" (client FIN) immediately after accept.
-    socket_->blockSignals(true);
-    if (socket_->state() != QAbstractSocket::UnconnectedState) {
-        socket_->abort();
-    }
+    // Create fresh socket to avoid Windows fd reuse race condition
+    setup_socket();
+
+    // connectToHost() is async - connection completes when connected() signal fires
     socket_->connectToHost(host, port);
-    socket_->blockSignals(false);
 
     // If connectToHost() failed synchronously (e.g. bad host), Qt moves the
     // socket to UnconnectedState without emitting connected().  In that case
     // the connection_error signal must still be emitted so the UI can recover.
     if (socket_->state() == QAbstractSocket::UnconnectedState) {
+        is_connecting_ = false;
         emit connection_error(socket_->errorString());
     }
 }
 
 void ChatClient::disconnect_from_server() {
-    if (socket_->state() != QAbstractSocket::UnconnectedState) {
-        socket_->disconnectFromHost();
+    // CRITICAL: Use abort() + SO_LINGER, NOT disconnectFromHost().
+    // disconnectFromHost() sends a graceful FIN that stays in-flight on the network.
+    // If the user reconnects immediately, Windows may reuse the same local ephemeral
+    // port for the new connection. The stale FIN from the old connection then arrives
+    // at the server and matches the new connection's 4-tuple, causing recv() to
+    // return 0 immediately (the "recv n=0" bug).
+    // abort() + SO_LINGER {1,0} sends RST instead of FIN, and releases the port
+    // immediately with no in-flight segments.
+    if (socket_) {
+#ifdef Q_OS_WIN
+        if (socket_->state() != QAbstractSocket::UnconnectedState) {
+            qintptr fd = socket_->socketDescriptor();
+            if (fd != -1) {
+                struct linger lg;
+                lg.l_onoff  = 1;
+                lg.l_linger = 0;
+                ::setsockopt(static_cast<SOCKET>(fd), SOL_SOCKET, SO_LINGER,
+                             reinterpret_cast<const char*>(&lg), sizeof(lg));
+            }
+        }
+#endif
+        socket_->abort();
     }
 }
 
 bool ChatClient::is_connected() const {
-    return socket_->state() == QAbstractSocket::ConnectedState;
+    return socket_ && socket_->state() == QAbstractSocket::ConnectedState;
 }
 
 QAbstractSocket::SocketState ChatClient::socketState() const {
-    return socket_->state();
+    return socket_ ? socket_->state() : QAbstractSocket::UnconnectedState;
 }
 
 // ── Send Protocol Messages ─────────────────────────────────────────
@@ -141,6 +212,7 @@ bool ChatClient::send_json(const QJsonObject& msg) {
 // ── Private Slots ──────────────────────────────────────────────────
 
 void ChatClient::on_socket_connected() {
+    is_connecting_ = false;
     emit connected();
 }
 
@@ -148,12 +220,30 @@ void ChatClient::on_socket_disconnected() {
     qDebug("[ChatClient] Socket disconnected, state=%d, error='%s', buf=%d bytes",
            socket_->state(), qUtf8Printable(socket_->errorString()), recv_buf_.size());
     recv_buf_.clear();
+
+    // If we're still in the connecting phase, this disconnect is a side-effect
+    // of a failed connection attempt (or residual signal from abort()).  Emit
+    // connection_error instead of disconnected() so the UI doesn't attempt a
+    // reconnect loop on what is really a connection failure.
+    if (is_connecting_) {
+        is_connecting_ = false;
+        emit connection_error(socket_->errorString());
+        return;
+    }
+
     emit disconnected();
 }
 
 void ChatClient::on_socket_error(QAbstractSocket::SocketError error) {
     qDebug("[ChatClient] Socket error code=%d: %s", error, qUtf8Printable(socket_->errorString()));
-    emit connection_error(socket_->errorString());
+
+    // If error occurred during connection attempt, handle it directly.
+    // For sockets that never connected, Qt may NOT emit disconnected(),
+    // which would leave is_connecting_ stuck at true forever.
+    if (is_connecting_) {
+        is_connecting_ = false;
+        emit connection_error(socket_->errorString());
+    }
 }
 
 void ChatClient::on_ready_read() {
@@ -170,16 +260,24 @@ void ChatClient::process_frames() {
         std::memcpy(&net_len, recv_buf_.constData(), 4);
         quint32 body_len = qFromBigEndian(net_len);
 
-        // Guard against oversized messages (16 MB limit, mirrors server)
-        if (body_len > 16 * 1024 * 1024) {
-            qWarning("[ChatClient] Oversized frame (%u bytes), disconnecting.", body_len);
+        // Guard against zero-length body (protocol violation)
+        if (body_len == 0) {
+            qWarning("[ChatClient] Zero-length body frame, disconnecting.");
             recv_buf_.clear();
-            socket_->disconnectFromHost();
+            disconnect_from_server();
             return;
         }
 
-        // Check if we have the full body
-        if (static_cast<quint32>(recv_buf_.size()) < 4 + body_len) {
+        // Guard against oversized messages (256KB limit, matches server protocol.cpp)
+        if (body_len > 256 * 1024) {
+            qWarning("[ChatClient] Oversized frame (%u bytes), disconnecting.", body_len);
+            recv_buf_.clear();
+            disconnect_from_server();  // Use abort()+SO_LINGER, not disconnectFromHost()
+            return;
+        }
+
+        // Check if we have the full body (use qsizetype to avoid 32-bit truncation)
+        if (recv_buf_.size() < static_cast<qsizetype>(4 + body_len)) {
             break; // Incomplete frame — wait for more data
         }
 

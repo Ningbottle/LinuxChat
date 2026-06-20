@@ -136,6 +136,30 @@ bool Database::verify_user(const std::string& username, const std::string& passw
     return result;
 }
 
+std::string Database::get_stored_hash(const std::string& username) {
+    std::lock_guard<std::mutex> lock(db_mutex_);
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = "SELECT password_hash FROM users WHERE username = ?;";
+    int rc = sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "[Database] prepare error: " << sqlite3_errmsg(db_) << "\n";
+        return "";
+    }
+
+    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
+
+    std::string stored;
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        const char* hash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        if (hash) stored = hash;
+    }
+
+    sqlite3_finalize(stmt);
+    return stored;
+}
+
 // ── Message Storage ────────────────────────────────────────────────
 
 void Database::store_message(const std::string& from, const std::string& to,

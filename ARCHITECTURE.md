@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Windows Client (Qt6 + Glassmorphism Dark)                      │
+│  Windows Client (Qt6 Widgets + Dark Slate + Indigo QSS)         │
 │  ┌────────────┐  ┌──────────────┐  ┌────────────────────────┐  │
 │  │LoginDialog  │  │ ChatClient   │  │ MainWindow             │  │
 │  │ (login/reg) │  │ (TCP+JSON)   │  │ (sidebar+chatTabs)     │  │
@@ -66,6 +66,11 @@ MainWindow (主窗口)
   ├── LoginDialog (登录/注册 UI)
   ├── ChatView (消息显示 + 输入)
   └── Sidebar (用户列表 + 会话切换)
+
+QML migration scaffold (not runtime entry yet)
+  ├── Backend (QML facade around ChatClient)
+  ├── MessageModel / UserModel (QAbstractListModel)
+  └── qml/main.qml (minimal pipeline placeholder)
 ```
 
 ## Data Flow
@@ -108,7 +113,7 @@ Alice                   Server                    Bob
 | Password storage | SHA-256 (OpenSSL EVP API) | OpenSSL 3.x 兼容，无废弃 API 告警 |
 | Database | SQLite3 WAL mode | Lightweight, no server process; WAL allows concurrent reads |
 | Session safety | shared_ptr\<ClientSession\> | 消除 use-after-free，generation token 防止 fd 复用串话 |
-| Client UI | Qt6 Widgets + Glassmorphism Dark | 现代暗色主题，半透明毛玻璃效果 |
+| Client UI | Qt6 Widgets + Dark Slate + Indigo QSS; optional QML scaffold | 当前运行入口为 Widgets；QML 迁移脚手架尚未替代入口；Phase 2 完成主题重写，Phase 3 完成交互状态与 Fusion 兼容 |
 | Test framework | Google Test | Industry standard, FetchContent for easy setup |
 
 ## CDD (Chat-Driven-Development) 工作流
@@ -151,14 +156,22 @@ client/
 │   ├── chat_client.h           ← depends on: Qt6 Network, nlohmann/json
 │   ├── login_dialog.h          ← depends on: Qt6 Widgets, chat_client.h
 │   ├── main_window.h           ← depends on: Qt6 Widgets, chat_client.h, chat_view.h
-│   └── chat_view.h             ← depends on: Qt6 Widgets
+│   ├── chat_view.h             ← depends on: Qt6 Widgets
+│   ├── backend.h               ← QML facade around ChatClient
+│   ├── message_model.h         ← QML message list model
+│   └── user_model.h            ← QML online-user list model
 ├── src/
 │   ├── chat_client.cpp         ← implements: chat_client.h
 │   ├── login_dialog.cpp        ← implements: login_dialog.h
 │   ├── main_window.cpp         ← implements: main_window.h
-│   └── chat_view.cpp           ← implements: chat_view.h
+│   ├── chat_view.cpp           ← implements: chat_view.h
+│   ├── backend.cpp             ← implements: backend.h
+│   ├── message_model.cpp       ← implements: message_model.h
+│   └── user_model.cpp          ← implements: user_model.h
+├── qml/
+│   └── main.qml                ← QML pipeline placeholder
 └── resources/
-    ├── style.qss               ← Glassmorphism dark theme
+    ├── style.qss               ← Dark Slate + Indigo QSS theme (Phase 2-3)
     └── resources.qrc           ← Qt resource file
 
 tests/

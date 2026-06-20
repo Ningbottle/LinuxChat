@@ -8,6 +8,7 @@
 
 #include "epoll_server.h"
 #include "protocol.h"
+#include "log_utils.h"
 
 #include <sys/socket.h>
 #include <sys/epoll.h>
@@ -25,18 +26,6 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
-
-/// Returns current time as "[YYYY-MM-DD HH:MM:SS.mmm]" for log lines.
-static std::string now_stamp() {
-    auto now = std::chrono::system_clock::now();
-    auto t   = std::chrono::system_clock::to_time_t(now);
-    auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(
-                   now.time_since_epoch()) % 1000;
-    std::ostringstream oss;
-    oss << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S")
-        << '.' << std::setfill('0') << std::setw(3) << ms.count();
-    return oss.str();
-}
 
 // ── Constructor / Destructor ───────────────────────────────────────
 
@@ -87,12 +76,9 @@ EpollServer::EpollServer(int port, size_t num_workers)
 EpollServer::~EpollServer() {
     stop();
 
-    // Close all client connections
+    // Release all client sessions — ClientSession destructor closes each fd.
     {
         std::lock_guard<std::mutex> lock(sessions_mutex_);
-        for (auto& [fd, session] : sessions_) {
-            ::close(fd);
-        }
         sessions_.clear();
     }
 
@@ -242,6 +228,11 @@ void EpollServer::handle_new_connection() {
     auto session = std::make_shared<ClientSession>(client_fd);
     session->generation = gen;
 
+    // Store client IP for rate limiting
+    char ip_str[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, sizeof(ip_str));
+    session->ip_address = ip_str;
+
     // Register with epoll
     struct epoll_event ev{};
     ev.events  = EPOLLIN | EPOLLRDHUP;
@@ -259,8 +250,6 @@ void EpollServer::handle_new_connection() {
         sessions_[client_fd] = std::move(session);
     }
 
-    char ip_str[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, sizeof(ip_str));
     std::cout << now_stamp() << " [Server] New connection from " << ip_str
               << ":" << ntohs(client_addr.sin_port)
               << " (fd=" << client_fd << ")\n";
@@ -320,8 +309,11 @@ void EpollServer::handle_client_event(int fd) {
 }
 
 void EpollServer::remove_client(int fd) {
-    // Remove from epoll
-    epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
+    // Remove from epoll (EBADF is harmless — fd may already be invalid)
+    if (epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) < 0 && errno != EBADF) {
+        std::cerr << now_stamp() << " [Server] epoll_ctl DEL for fd=" << fd
+                  << " failed: " << strerror(errno) << "\n";
+    }
 
     std::shared_ptr<ClientSession> removed_session;
 
@@ -331,6 +323,12 @@ void EpollServer::remove_client(int fd) {
         if (it != sessions_.end()) {
             removed_session = it->second;
             sessions_.erase(it);
+            // CRITICAL: Update the session's generation AND bump the global counter.
+            // In-flight worker lambdas captured gen_at_dispatch = session->generation
+            // and check sess_copy->generation != gen_at_dispatch. If we only bump
+            // next_generation_ without updating the session's field, the check
+            // compares the same value to itself (always equal) — a no-op.
+            removed_session->generation = ++next_generation_;
         }
     }
 
@@ -345,11 +343,17 @@ void EpollServer::remove_client(int fd) {
 
     if (removed_session) {
         std::cout << now_stamp() << " [Server] Client disconnected: "
-                  << (removed_session->is_authenticated() ? removed_session->username : "(unauth)")
+                  << (removed_session->is_authenticated() ? removed_session->get_username() : "(unauth)")
                   << " (fd=" << fd << ", gen=" << removed_session->generation << ")\n";
-    }
 
-    close(fd);
+        // shutdown() makes in-flight send() calls fail immediately with EPIPE,
+        // preventing them from writing to a reused fd. The actual close(fd)
+        // happens in ~ClientSession() when the last shared_ptr is released.
+        ::shutdown(fd, SHUT_WR);
+    }
+    // Do NOT close(fd) here — ClientSession destructor handles it.
+    // This keeps the fd alive for in-flight send_to_fd()/broadcast() calls
+    // that hold a shared_ptr<ClientSession>.
 }
 
 void EpollServer::set_nonblocking(int fd) {
@@ -362,36 +366,48 @@ void EpollServer::set_nonblocking(int fd) {
 // ── Messaging API ──────────────────────────────────────────────────
 
 void EpollServer::broadcast(const nlohmann::json& msg, const std::string& exclude_username) {
-    // Copy target fds under lock, then send WITHOUT holding the lock.
-    // Prevents deadlock: send_to_fd (called by handlers on worker threads)
-    // also locks sessions_mutex_.
-    std::vector<int> fds;
+    // Copy shared_ptrs under lock, then send WITHOUT holding the lock.
+    // The shared_ptr keeps the session (and its fd) alive during send,
+    // preventing fd-reuse races where remove_client() closes the fd and
+    // a new connection reuses it before send_msg() completes.
+    std::vector<std::shared_ptr<ClientSession>> targets;
     {
         std::lock_guard<std::mutex> lock(sessions_mutex_);
         for (const auto& [fd, session] : sessions_) {
             if (!session->is_authenticated()) continue;
-            if (!exclude_username.empty() && session->username == exclude_username) continue;
-            fds.push_back(fd);
+            if (!exclude_username.empty() && session->get_username() == exclude_username) continue;
+            targets.push_back(session);
         }
     }
-    for (int fd : fds) {
-        Protocol::send_msg(fd, msg);
+    for (const auto& session : targets) {
+        std::lock_guard<std::mutex> send_lock(session->send_mutex_);
+        Protocol::send_msg(session->fd, msg);
     }
 }
 
 bool EpollServer::send_to_fd(int fd, const nlohmann::json& msg) {
-    std::lock_guard<std::mutex> lock(sessions_mutex_);
-    auto it = sessions_.find(fd);
-    if (it == sessions_.end()) return false;
-    return Protocol::send_msg(fd, msg);
+    std::shared_ptr<ClientSession> session;
+    {
+        std::lock_guard<std::mutex> lock(sessions_mutex_);
+        auto it = sessions_.find(fd);
+        if (it == sessions_.end()) return false;
+        session = it->second;  // copy shared_ptr to keep session alive
+    }
+    // Send WITHOUT holding sessions_mutex_ — send_msg does blocking I/O and
+    // holding sessions_mutex_ here would deadlock with handle_client_event.
+    // Lock send_mutex_ to prevent frame interleaving from concurrent sends.
+    // The shared_ptr keeps the fd alive; if remove_client() runs concurrently,
+    // shutdown(fd, SHUT_WR) makes send() return EPIPE.
+    std::lock_guard<std::mutex> send_lock(session->send_mutex_);
+    return Protocol::send_msg(session->fd, msg);
 }
 
-int EpollServer::find_fd(const std::string& username) const {
+std::shared_ptr<ClientSession> EpollServer::find_session(const std::string& username) const {
     std::lock_guard<std::mutex> lock(sessions_mutex_);
     for (const auto& [fd, session] : sessions_) {
-        if (session->username == username) {
-            return fd;
+        if (session->get_username() == username) {
+            return session;
         }
     }
-    return -1;
+    return nullptr;
 }

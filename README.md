@@ -1,6 +1,6 @@
 # LinuxChat — 瓶子交流器 (Bottle Messenger)
 
-一个基于 **C/S 架构** 的即时通讯应用:Linux epoll 服务端 + Windows Qt6 客户端,自定义 JSON-over-TCP 协议。Glassmorphism 暗色主题视觉风格。本作品是《Linux 操作系统与程序设计》课程设计。
+一个基于 **C/S 架构** 的即时通讯应用:Linux epoll 服务端 + Windows Qt6 客户端,自定义 JSON-over-TCP 协议。当前客户端为 Dark Slate + Indigo 专业深色 QSS 主题,并保留 QML 迁移脚手架。本作品是《Linux 操作系统与程序设计》课程设计。
 
 > **架构:C/S**。客户端为需安装运行的桌面程序(Qt6),服务端为 epoll TCP 服务器,二者通过自定义二进制帧协议通信。非 B/S(无浏览器/HTTP/Web 服务器)。
 
@@ -9,7 +9,7 @@
 ```text
 LinuxChat/
 ├── client/                 # Qt6 客户端 (Windows)
-│   ├── include/  src/  resources/  CMakeLists.txt
+│   ├── include/  src/  qml/  resources/  CMakeLists.txt
 ├── server/                 # C++ epoll 服务端 (Linux)
 │   ├── include/  src/  third_party/  CMakeLists.txt
 ├── tests/                  # Google Test (108 tests)
@@ -46,20 +46,38 @@ MainWindow (主窗口)
   └── Sidebar (用户列表 + 会话切换)
 ```
 
-## 设计风格 — Glassmorphism 暗色主题
+## 设计风格 — Dark Slate + Indigo 主题
+
+### Design Tokens
+| Token | Hex | 用途 |
+|-------|-----|------|
+| bg | `#0f172a` | 主背景 (Canvas) |
+| surface | `#1e293b` | 侧栏/卡片/对话框 |
+| elevated | `#334155` | 悬浮/选中态 |
+| card | `#475569` | 边框/分割线 |
+| text | `#f1f5f9` | 主文字 |
+| muted | `#94a3b8` | 次要文字 |
+| accent | `#6366f1` | Indigo 强调 (按钮/在线/Tab) |
+| accent_h | `#4f46e5` | Indigo hover |
+| danger | `#ef4444` | 错误/危险 |
+| success | `#22c55e` | 成功/在线 |
+| radius | 4/8/12px | 圆角梯度 |
 
 ### 视觉特点
-- **深色背景**: Dark slate (#0f172a) 全局背景
-- **毛玻璃卡片**: 半透明背景 (rgba(255,255,255,0.05)) + backdrop-filter blur
-- **Indigo 强调色**: #6366f1 按钮、高亮、活跃状态
-- **微妙发光**: 1px rgba(255,255,255,0.1) 边框，悬停时增强
-- **圆角设计**: 12-16px 大圆角，现代感
+- **深色专业画布**: #0f172a 暗蓝背景 + #1e293b 表面层次
+- **Indigo 强调系统**: #6366f1 用于按钮、在线状态、标签页下划线、未读徽章
+- **完整交互状态**: 所有控件覆盖 hover/pressed/disabled/focus 状态
+- **错误状态驱动**: 通过 `[error="true"]` 动态属性实现 QSS 错误样式
+- **Fusion 兼容**: QComboBox/QCheckBox/QRadioButton/QProgressBar/QGroupBox 全覆盖
+- **中文字体栈**: Segoe UI → Inter → YaHei → LXGW WenKai
 
 ### 组件样式
-- **登录框**: 毛玻璃居中卡片，indigo 渐变登录按钮
-- **消息气泡**: 自己的消息 indigo 半透明，他人的消息深灰半透明
-- **侧边栏**: 更深的背景 (#0a0f1a)，选中项 indigo 高亮
-- **输入区**: 底部毛玻璃输入栏，indigo 发送按钮
+- **登录框**: Elevated surface (#1e293b) + 错误状态红边框 + 状态文字动态变色
+- **消息气泡**: 自己=Indigo (#6366f1) / 他人=Slate (#1e293b) + 微边框
+- **侧边栏**: Surface 背景 + hover/selected 层次渐变
+- **滚动条**: 6px 细滚动条 + hover/pressed 状态
+- **标签页**: 底部 Indigo 下划线 + hover 背景 + disabled 状态
+- **输入区**: 深色输入框 + Indigo focus 边框 + error 红边框
 
 ### 测试模式
 ```bash
@@ -140,24 +158,28 @@ ctest --output-on-failure
 | 层 | 技术 |
 |---|---|
 | 服务端 | C++17 / epoll(level-triggered) / ThreadPool / SQLite3(WAL) / OpenSSL(SHA-256 EVP) / nlohmann::json |
-| 客户端 | C++17 / Qt6 Widgets / Glassmorphism QSS / QTcpSocket |
+| 客户端 | C++17 / Qt6 Widgets / Dark Slate + Indigo QSS / QTcpSocket / 可选 QML 脚手架 |
 | 协议 | JSON-over-TCP, 4 字节大端长度前缀, 16MB 上限, EAGAIN 重试 |
 | 测试 | Google Test (FetchContent), 108 个测试用例 |
 
 ## 特性
 
-- ✅ Glassmorphism 暗色主题（毛玻璃效果 + Indigo 强调色）
-- ✅ 自定义字体 (LXGW WenKai、Newsreader)
+- ✅ Dark Slate + Indigo 专业深色主题（Design Tokens + 完整交互状态）
+- ✅ 自定义字体栈 (Segoe UI → Inter → YaHei → LXGW WenKai)
 - ✅ 消息气泡(发送/接收) + 在线用户列表 + 当前会话高亮
 - ✅ 公聊广播 + 一对一私聊 + 历史消息加载
 - ✅ 跨平台(Windows 客户端 + Linux 服务端)
 - ✅ MessageRouter 架构（430 行 → 113 行）
 - ✅ 108 个单元测试全覆盖
 - ✅ --test-chat 模式快速 UI 迭代
+- ✅ Fusion 样式兼容（QComboBox/QCheckBox/QRadioButton/QProgressBar/QGroupBox）
+- ✅ 登录对话框 error 动态属性驱动 QSS 错误状态
+- 🚧 QML 迁移脚手架（Backend/MessageModel/UserModel + `qml/main.qml`; 运行入口仍为 Widgets）
 
 ## 文档
 
 - [架构说明](ARCHITECTURE.md)
+- [上下文索引](docs/INDEX.md)
 - [项目合约](CONTRACT.md)
 - [产品需求 PRD](docs/specs/prd.md)
 - [架构 Blueprint](docs/specs/blueprint.md)

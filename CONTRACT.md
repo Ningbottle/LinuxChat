@@ -1,8 +1,8 @@
 # LinuxChat — Project Contract
 
-> Version: 1.1
+> Version: 1.2
 > Status: Active
-> Last Updated: 2026-06-17
+> Last Updated: 2026-06-19
 
 ---
 
@@ -18,7 +18,7 @@ It implements real-time chat over TCP using a custom JSON-over-TCP protocol.
 | Server Runtime | Linux (epoll) | Kernel 4.x+ |
 | Server Language | C++ | C++17 |
 | Client Runtime | Windows | 10/11 |
-| Client Framework | Qt (Widgets + Glassmorphism) | Qt 6.x |
+| Client Framework | Qt Widgets + Dark Slate + Indigo QSS; optional QML scaffold | Qt 6.x |
 | Client Language | C++ | C++17 |
 | Database | SQLite3 | WAL mode |
 | Crypto | OpenSSL (SHA-256 EVP) | 3.x |
@@ -47,6 +47,9 @@ It implements real-time chat over TCP using a custom JSON-over-TCP protocol.
 | LoginDialog | `include/login_dialog.h`, `src/login_dialog.cpp` | Login/Register UI |
 | MainWindow | `include/main_window.h`, `src/main_window.cpp` | Main chat window layout |
 | ChatView | `include/chat_view.h`, `src/chat_view.cpp` | Message display + input area |
+| QML Backend | `include/backend.h`, `src/backend.cpp` | QML facade wrapping ChatClient for incremental migration |
+| QML Models | `include/message_model.h`, `src/message_model.cpp`, `include/user_model.h`, `src/user_model.cpp` | QAbstractListModel data surfaces for QML |
+| QML Placeholder | `qml/main.qml` | Minimal ApplicationWindow scaffold; not current runtime entry |
 | Main | `main.cpp` | Application entry, style loading |
 
 ### Tests (`LinuxChat/tests/`)
@@ -108,9 +111,12 @@ notify_received(content)
 
 ## 5. Constraints
 
-- **Immutable files**: `thread_pool.cpp`, all server `.h` headers, `resources.qrc`, `protocol.md`
-- **Modified files** (已修改，不再是 immutable): `protocol.cpp` (EAGAIN 重试), `style.qss` (Glassmorphism 重写)
+- **Immutable files**: `thread_pool.cpp`, all server `.h` headers, `resources.qrc`
+- **Modified files** (已修改，不再是 immutable): `protocol.cpp` (EAGAIN 重试), `style.qss` (Dark Slate + Indigo 主题), `protocol.md` (预留协议状态标注)
 - **Style rule**: All client UI styles via QSS objectName selectors; never inline `setStyleSheet()`
+- **Design tokens (Phase 2+)**: bg=#0f172a, surface=#1e293b, elevated=#334155, accent=#6366f1, text=#f1f5f9, muted=#94a3b8, danger=#ef4444, success=#22c55e
+- **Interaction states**: All interactive controls must define `:hover`, `:pressed`, `:disabled`, `:focus` states; error states via dynamic property `[error="true"]`
+- **Fusion compatibility**: QSS must cover QComboBox, QCheckBox, QRadioButton, QProgressBar, QGroupBox for consistent rendering on all platforms
 - **Protocol**: `to="__room__"` denotes broadcast history; `to=username` denotes private history
 - **Feature scope (Phase 1)**: Register, Login, Broadcast, Private, OnlineUserList, History
 - **Deferred**: Friend system, blacklist, offline messages, file transfer
@@ -127,11 +133,15 @@ notify_received(content)
 - [x] shared_ptr 消除 use-after-free
 - [x] broadcast 锁优化（复制-释放-发送）
 - [x] write_all EAGAIN 重试机制
+- [x] Dark Slate + Indigo QSS 主题全面覆盖 (Phase 2)
+- [x] 交互状态完善: hover/pressed/disabled/focus/error 全覆盖 (Phase 3)
+- [x] 登录对话框 error 动态属性驱动 QSS 错误状态 (Phase 3)
+- [x] Fusion 样式兼容: QComboBox/QCheckBox/QRadioButton/QProgressBar/QGroupBox (Phase 3)
 
 ## 7. Protocol Version
 
 - **Version**: 1.0 (JSON-over-TCP)
 - **Frame format**: 4-byte big-endian length prefix + JSON body
 - **Max frame size**: 16 MB
-- **Message types**: REGISTER, LOGIN, LOGOUT, BROADCAST, PRIVATE, HISTORY_REQ, HISTORY_RESP, USER_LIST, NOTIFY, ERROR, LOGIN_OK
+- **Message types**: REGISTER, LOGIN, LOGOUT, BROADCAST, PRIVATE, HISTORY_REQ, HISTORY_RESP, USER_LIST, NOTIFY, ERROR, LOGIN_OK, PING, PONG
 - **Changes in v1.0.1**: `protocol.cpp` 添加 EAGAIN/EINTR 重试，`send_all` 循环处理部分写入

@@ -172,8 +172,8 @@ TEST(ProtocolRecv, OversizedFrame_ReturnsNullopt) {
     auto [read_fd, write_fd] = make_pipe();
     ClientSession session(read_fd);
 
-    // Send a header claiming > 16MB body
-    uint32_t net_len = htonl(17 * 1024 * 1024); // 17 MB
+    // Send a header claiming > 256KB body (MAX_BODY_LEN = 256 * 1024)
+    uint32_t net_len = htonl(256 * 1024 + 1); // 256KB + 1
     write_raw(write_fd, &net_len, 4);
 
     auto msgs = Protocol::recv_msgs(session);
@@ -409,4 +409,158 @@ TEST(ProtocolSend, JsonWithNestedStructure) {
 
     close(read_fd);
     close(write_fd);
+}
+
+// ── P0 Fix Tests ─────────────────────────────────────────────────
+
+TEST(ProtocolRecv, ZeroLengthBody_ReturnsNullopt) {
+    auto [read_fd, write_fd] = make_pipe();
+    ClientSession session(read_fd);
+
+    // Send a header claiming 0-byte body
+    uint32_t net_len = htonl(0);
+    write_raw(write_fd, &net_len, 4);
+
+    auto msgs = Protocol::recv_msgs(session);
+    EXPECT_FALSE(msgs.has_value()); // body_len==0 → disconnect
+
+    close(read_fd);
+    close(write_fd);
+}
+
+TEST(ProtocolRecv, ThreeConsecutiveParseFailures_ReturnsNullopt) {
+    auto [read_fd, write_fd] = make_pipe();
+    ClientSession session(read_fd);
+
+    // Send 3 frames with invalid JSON
+    for (int i = 0; i < 3; ++i) {
+        std::string bad_body = "not json{{{";
+        uint32_t bad_len = htonl(static_cast<uint32_t>(bad_body.size()));
+        write_raw(write_fd, &bad_len, 4);
+        write_raw(write_fd, bad_body.c_str(), bad_body.size());
+    }
+
+    auto msgs = Protocol::recv_msgs(session);
+    EXPECT_FALSE(msgs.has_value()); // 3 consecutive failures → disconnect
+
+    close(read_fd);
+    close(write_fd);
+}
+
+TEST(ProtocolRecv, TwoParseFailuresThenSuccess_Continues) {
+    auto [read_fd, write_fd] = make_pipe();
+    ClientSession session(read_fd);
+
+    // Send 2 frames with invalid JSON
+    for (int i = 0; i < 2; ++i) {
+        std::string bad_body = "not json{{{";
+        uint32_t bad_len = htonl(static_cast<uint32_t>(bad_body.size()));
+        write_raw(write_fd, &bad_len, 4);
+        write_raw(write_fd, bad_body.c_str(), bad_body.size());
+    }
+
+    // Send a valid frame (resets counter)
+    json valid = {{"type", "BROADCAST"}, {"content", "recovered"}};
+    write_frame(write_fd, valid);
+
+    auto msgs = Protocol::recv_msgs(session);
+    ASSERT_TRUE(msgs.has_value());
+    ASSERT_EQ(msgs->size(), 1u);
+    EXPECT_EQ((*msgs)[0]["content"], "recovered");
+
+    close(read_fd);
+    close(write_fd);
+}
+
+TEST(ProtocolRecv, PeerClosedWithBufferedData_ReturnsMessages) {
+    auto [read_fd, write_fd] = make_pipe();
+    ClientSession session(read_fd);
+
+    // Send a valid frame, then close the write end
+    json msg = {{"type", "BROADCAST"}, {"content", "last message"}};
+    write_frame(write_fd, msg);
+    close(write_fd);
+
+    // First call: should return the buffered message despite peer closed
+    auto msgs = Protocol::recv_msgs(session);
+    ASSERT_TRUE(msgs.has_value());
+    ASSERT_EQ(msgs->size(), 1u);
+    EXPECT_EQ((*msgs)[0]["content"], "last message");
+
+    close(read_fd);
+}
+
+TEST(ProtocolRecv, PeerClosedNoData_ReturnsNullopt) {
+    auto [read_fd, write_fd] = make_pipe();
+    ClientSession session(read_fd);
+
+    // Close write end without sending any data
+    close(write_fd);
+
+    auto msgs = Protocol::recv_msgs(session);
+    EXPECT_FALSE(msgs.has_value()); // No data + peer closed → nullopt
+
+    close(read_fd);
+}
+
+// ── ClientSession Tests ──────────────────────────────────────────
+
+TEST(ClientSession, DestructorClosesFd) {
+    int fds[2];
+    ASSERT_EQ(pipe(fds), 0);
+    int read_fd = fds[0];
+
+    {
+        ClientSession session(read_fd);
+        EXPECT_GE(session.fd, 0);
+    } // session destroyed here — destructor should close read_fd
+
+    // Verify fd is closed: write to write end should fail with EPIPE
+    // (read end was closed by destructor)
+    char buf[1] = {'x'};
+    ssize_t n = write(fds[1], buf, 1);
+    EXPECT_EQ(n, -1);
+    EXPECT_EQ(errno, EPIPE);
+
+    close(fds[1]); // clean up write end
+}
+
+TEST(ClientSession, UsernameThreadSafety) {
+    int fds[2];
+    ASSERT_EQ(pipe(fds), 0);
+    ClientSession session(fds[0]);
+
+    // Initially not authenticated
+    EXPECT_FALSE(session.is_authenticated());
+    EXPECT_TRUE(session.get_username().empty());
+
+    // Set username
+    session.set_username("alice");
+    EXPECT_TRUE(session.is_authenticated());
+    EXPECT_EQ(session.get_username(), "alice");
+
+    // Clear username
+    session.clear_username();
+    EXPECT_FALSE(session.is_authenticated());
+    EXPECT_TRUE(session.get_username().empty());
+
+    close(fds[0]);
+    close(fds[1]);
+}
+
+TEST(ClientSession, GenerationCounter) {
+    int fds[2];
+    ASSERT_EQ(pipe(fds), 0);
+    ClientSession session(fds[0]);
+
+    EXPECT_EQ(session.generation, 0u);
+
+    session.generation = 5;
+    EXPECT_EQ(session.generation, 5u);
+
+    session.generation = 42;
+    EXPECT_EQ(session.generation, 42u);
+
+    close(fds[0]);
+    close(fds[1]);
 }

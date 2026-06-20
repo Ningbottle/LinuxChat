@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BottleChat - 瓶子交流器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  /* Light scheme (Scheme A) */
+  --bg:              #FFFFFF;
+  --sidebar-bg:      #FFFFFF;
+  --sidebar-hover:   #F5F5F7;
+  --sidebar-active:  #007AFF;
+  --sidebar-active-text: #FFFFFF;
+  --sidebar-border:  #E5E5EA;
+  --chat-bg:         #FFFFFF;
+  --bubble-self:     #007AFF;
+  --bubble-self-text:#FFFFFF;
+  --bubble-other:    #E9E9EB;
+  --bubble-other-text:#000000;
+  --bubble-system-bg:#E9E9EB;
+  --bubble-system-text:#8E8E93;
+  --input-bg:        #FFFFFF;
+  --input-border:    #D1D1D6;
+  --input-field-bg:  #F2F2F7;
+  --text-primary:    #000000;
+  --text-secondary:  #8E8E93;
+  --text-tertiary:   #AEAEB2;
+  --separator:       #C6C6C8;
+  --header-bg:       #F9F9FB;
+  --header-border:   #D1D1D6;
+  --search-bg:       #E5E5EA;
+  --scrollbar-thumb: rgba(0,0,0,0.2);
+  --timestamp-color: #8E8E93;
+  --avatar-ring:     #FFFFFF;
+  --online-dot:      #34C759;
+  --pin-icon:        #007AFF;
+  --danger:          #FF3B30;
+  --send-btn:        #007AFF;
+  --login-card-bg:   #FFFFFF;
+  --login-overlay:   rgba(0,0,0,0.08);
+  --drag-handle-bg:  transparent;
+  --drag-handle-hover: rgba(0,0,0,0.06);
+  --unread-badge:    #FF3B30;
+  --bubble-tail-other: #E9E9EB;
+  --bubble-tail-self:  #007AFF;
+}
+
+html.dark {
+  --bg:              #000000;
+  --sidebar-bg:      #1C1C1E;
+  --sidebar-hover:   #2C2C2E;
+  --sidebar-active:  #007AFF;
+  --sidebar-active-text: #FFFFFF;
+  --sidebar-border:  #38383A;
+  --chat-bg:         #000000;
+  --bubble-self:     #007AFF;
+  --bubble-self-text:#FFFFFF;
+  --bubble-other:    #2C2C2E;
+  --bubble-other-text:#FFFFFF;
+  --bubble-system-bg:#2C2C2E;
+  --bubble-system-text:#8E8E93;
+  --input-bg:        #1C1C1E;
+  --input-border:    #38383A;
+  --input-field-bg:  #2C2C2E;
+  --text-primary:    #FFFFFF;
+  --text-secondary:  #8E8E93;
+  --text-tertiary:   #636366;
+  --separator:       #38383A;
+  --header-bg:       #1C1C1E;
+  --header-border:   #38383A;
+  --search-bg:       #2C2C2E;
+  --scrollbar-thumb: rgba(255,255,255,0.2);
+  --timestamp-color: #8E8E93;
+  --avatar-ring:     #1C1C1E;
+  --online-dot:      #30D158;
+  --pin-icon:        #0A84FF;
+  --danger:          #FF453A;
+  --send-btn:        #0A84FF;
+  --login-card-bg:   #1C1C1E;
+  --login-overlay:   rgba(0,0,0,0.5);
+  --drag-handle-bg:  transparent;
+  --drag-handle-hover: rgba(255,255,255,0.06);
+  --unread-badge:    #FF453A;
+  --bubble-tail-other: #2C2C2E;
+  --bubble-tail-self:  #007AFF;
+}
+
+html {
+  font-family: 'LXGW WenKai', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg);
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ============================================================
+   SCROLLBAR — hidden (iMessage style)
+   ============================================================ */
+::-webkit-scrollbar { width: 0; height: 0; }
+* { scrollbar-width: none; }
+
+/* ============================================================
+   LOGIN OVERLAY
+   ============================================================ */
+#login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--login-overlay);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+
+#login-overlay.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.login-card {
+  background: var(--login-card-bg);
+  border-radius: 16px;
+  padding: 48px 40px 40px;
+  width: 360px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
+  text-align: center;
+  animation: loginFadeIn 0.4s ease;
+}
+
+@keyframes loginFadeIn {
+  from { opacity: 0; transform: scale(0.96) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.login-card .logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #007AFF, #5856D6);
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: white;
+  box-shadow: 0 4px 16px rgba(0,122,255,0.3);
+}
+
+.login-card h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.login-card .subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 28px;
+}
+
+.login-card input {
+  width: 100%;
+  height: 44px;
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 15px;
+  font-family: inherit;
+  background: var(--input-field-bg);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 12px;
+}
+
+.login-card input:focus {
+  border-color: #007AFF;
+  box-shadow: 0 0 0 3px rgba(0,122,255,0.15);
+}
+
+.login-card input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.login-card .login-btn {
+  width: 100%;
+  height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: #007AFF;
+  color: white;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.login-card .login-btn:hover {
+  background: #0066D6;
+}
+
+.login-card .login-btn:active {
+  transform: scale(0.98);
+}
+
+.login-card .login-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 16px;
+}
+
+/* ============================================================
+   APP LAYOUT
+   ============================================================ */
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+#app.visible {
+  opacity: 1;
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+#sidebar {
+  width: 320px;
+  min-width: 200px;
+  max-width: 500px;
+  height: 100%;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  flex-shrink: 0;
+  transition: width 0s; /* no transition during drag */
+}
+
+#sidebar.collapsed {
+  width: 0 !important;
+  min-width: 0;
+  overflow: hidden;
+  border-right: none;
+}
+
+/* Sidebar header */
+.sidebar-header {
+  padding: 52px 16px 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.sidebar-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+.sidebar-header-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.sidebar-header-actions button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.15s;
+}
+
+.sidebar-header-actions button:hover {
+  background: var(--sidebar-hover);
+}
+
+/* Search */
+.sidebar-search {
+  padding: 0 16px 10px;
+  flex-shrink: 0;
+}
+
+.sidebar-search input {
+  width: 100%;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  padding: 0 10px 0 32px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--search-bg);
+  color: var(--text-primary);
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%238E8E93' viewBox='0 0 24 24'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 10px center;
+  background-size: 14px;
+  transition: box-shadow 0.2s;
+}
+
+.sidebar-search input:focus {
+  box-shadow: 0 0 0 3px rgba(0,122,255,0.15);
+}
+
+.sidebar-search input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Conversation list */
+.conversation-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px;
+}
+
+.conversation-item {
+  display: flex;
+  align-items: center;
+  height: 52px;
+  padding: 0 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.12s;
+  margin-bottom: 1px;
+  position: relative;
+}
+
+.conversation-item:hover {
+  background: var(--sidebar-hover);
+}
+
+.conversation-item.active {
+  background: var(--sidebar-active);
+}
+
+.conversation-item.active .conv-name,
+.conversation-item.active .conv-preview,
+.conversation-item.active .conv-time,
+.conversation-item.active .conv-badge {
+  color: var(--sidebar-active-text) !important;
+}
+
+.conversation-item.active .conv-badge {
+  background: rgba(255,255,255,0.3) !important;
+}
+
+.conversation-item.active .pin-icon {
+  color: rgba(255,255,255,0.8) !important;
+}
+
+.conv-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+  position: relative;
+}
+
+.conv-avatar img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.online-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--online-dot);
+  border: 2px solid var(--sidebar-bg);
+}
+
+.conversation-item.active .online-dot {
+  border-color: var(--sidebar-active);
+}
+
+.conv-info {
+  flex: 1;
+  min-width: 0;
+  margin-left: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.conv-name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pin-icon {
+  font-size: 12px;
+  color: var(--pin-icon);
+  flex-shrink: 0;
+}
+
+.conv-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conv-preview {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.conv-meta {
+  flex-shrink: 0;
+  margin-left: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.conv-time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.conv-badge {
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--unread-badge);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+}
+
+/* Drag handle */
+#drag-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+  background: var(--drag-handle-bg);
+  transition: background 0.15s;
+}
+
+#drag-handle:hover,
+#drag-handle.dragging {
+  background: var(--drag-handle-hover);
+}
+
+#drag-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 32px;
+  border-radius: 1px;
+  background: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+#drag-handle:hover::after,
+#drag-handle.dragging::after {
+  opacity: 0.5;
+}
+
+/* ============================================================
+   CHAT AREA
+   ============================================================ */
+#chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--chat-bg);
+  min-width: 0;
+}
+
+/* Chat header */
+.chat-header {
+  height: 52px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--header-border);
+  background: var(--header-bg);
+  flex-shrink: 0;
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-header-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+}
+
+.chat-header-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.chat-header-status {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: -2px;
+}
+
+.chat-header-right {
+  display: flex;
+  gap: 4px;
+}
+
+.chat-header-right button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.15s;
+}
+
+.chat-header-right button:hover {
+  background: var(--sidebar-hover);
+}
+
+/* Messages container */
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 60px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Date separator */
+.date-separator {
+  text-align: center;
+  padding: 8px 0;
+  flex-shrink: 0;
+}
+
+.date-separator span {
+  font-size: 11px;
+  color: var(--timestamp-color);
+  background: var(--chat-bg);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* Message groups */
+.message-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 2px;
+}
+
+.message-group.with-gap {
+  margin-top: 10px;
+}
+
+.message-row {
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 1px;
+}
+
+.message-row.self {
+  justify-content: flex-end;
+}
+
+.message-row.self .message-bubble {
+  background: var(--bubble-self);
+  color: var(--bubble-self-text);
+  border-radius: 18px 18px 4px 18px;
+  margin-left: auto;
+}
+
+.message-row.self .message-bubble.tail {
+  border-radius: 18px 18px 4px 18px;
+}
+
+.message-row.self .message-bubble.no-tail {
+  border-radius: 18px 18px 18px 18px;
+}
+
+.message-row.other {
+  justify-content: flex-start;
+}
+
+.msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  margin-right: 6px;
+  margin-bottom: 2px;
+}
+
+.msg-avatar.hidden-avatar {
+  visibility: hidden;
+}
+
+.message-bubble {
+  max-width: 65%;
+  padding: 8px 14px;
+  font-size: 15px;
+  line-height: 1.4;
+  word-break: break-word;
+  position: relative;
+}
+
+.message-row.other .message-bubble {
+  background: var(--bubble-other);
+  color: var(--bubble-other-text);
+  border-radius: 18px 18px 18px 4px;
+}
+
+.message-row.other .message-bubble.tail {
+  border-radius: 18px 18px 18px 4px;
+}
+
+.message-row.other .message-bubble.no-tail {
+  border-radius: 18px 18px 18px 18px;
+}
+
+/* Bubble tail (CSS triangle) */
+.message-row.self .message-bubble.tail::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: -5px;
+  width: 12px;
+  height: 12px;
+  background: var(--bubble-tail-self);
+  clip-path: polygon(0 0, 0 100%, 100% 100%);
+}
+
+.message-row.other .message-bubble.tail::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -5px;
+  width: 12px;
+  height: 12px;
+  background: var(--bubble-tail-other);
+  clip-path: polygon(100% 0, 0 100%, 100% 100%);
+}
+
+/* System message */
+.message-system {
+  text-align: center;
+  padding: 6px 0;
+}
+
+.message-system span {
+  font-size: 12px;
+  color: var(--bubble-system-text);
+  background: var(--bubble-system-bg);
+  padding: 4px 14px;
+  border-radius: 14px;
+}
+
+/* Timestamp inline */
+.msg-timestamp {
+  font-size: 11px;
+  color: var(--timestamp-color);
+  padding: 4px 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.message-group:hover .msg-timestamp,
+.message-row:hover + .msg-timestamp-row .msg-timestamp {
+  opacity: 1;
+}
+
+.msg-timestamp-row {
+  display: flex;
+  padding: 0 34px;
+}
+
+.msg-timestamp-row.self {
+  justify-content: flex-end;
+  padding: 0;
+}
+
+/* Name label above group */
+.msg-sender-name {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+  margin-left: 34px;
+}
+
+.message-row.self .msg-sender-name {
+  display: none;
+}
+
+/* Typing indicator */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  gap: 3px;
+}
+
+.typing-indicator .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  animation: typingBounce 1.4s infinite ease-in-out;
+}
+
+.typing-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingBounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ============================================================
+   INPUT AREA
+   ============================================================ */
+.input-area {
+  padding: 8px 60px 12px;
+  border-top: 1px solid var(--input-border);
+  background: var(--input-bg);
+  flex-shrink: 0;
+}
+
+.input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.input-field-wrap {
+  flex: 1;
+  position: relative;
+}
+
+.input-field {
+  width: 100%;
+  min-height: 36px;
+  max-height: 120px;
+  border: 1px solid var(--input-border);
+  border-radius: 18px;
+  padding: 7px 14px;
+  font-size: 15px;
+  font-family: inherit;
+  background: var(--input-field-bg);
+  color: var(--text-primary);
+  outline: none;
+  resize: none;
+  line-height: 1.4;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-field:focus {
+  border-color: #007AFF;
+  box-shadow: 0 0 0 3px rgba(0,122,255,0.1);
+}
+
+.input-field::placeholder {
+  color: var(--text-tertiary);
+}
+
+.send-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: var(--send-btn);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.1s, opacity 0.15s;
+  opacity: 0.4;
+}
+
+.send-btn.active {
+  opacity: 1;
+}
+
+.send-btn:hover {
+  background: #0066D6;
+}
+
+.send-btn:active {
+  transform: scale(0.92);
+}
+
+.send-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: white;
+}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  gap: 8px;
+}
+
+.empty-state .empty-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  font-size: 15px;
+}
+
+/* ============================================================
+   THEME TOGGLE
+   ============================================================ */
+.theme-toggle {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 100;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: var(--sidebar-hover);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: background 0.15s, color 0.15s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.theme-toggle:hover {
+  background: var(--separator);
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   SIDEBAR TOGGLE BUTTON
+   ============================================================ */
+.sidebar-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: -14px;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 48px;
+  border: none;
+  border-radius: 0 4px 4px 0;
+  background: var(--sidebar-border);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+#sidebar:hover .sidebar-toggle-btn,
+.sidebar-toggle-btn:hover {
+  opacity: 1;
+}
+
+.sidebar-toggle-btn svg {
+  width: 8px;
+  height: 8px;
+  fill: var(--text-secondary);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 700px) {
+  #sidebar { width: 100% !important; max-width: 100%; }
+  #chat-area { display: none; }
+  .messages-container { padding: 12px 16px; }
+  .input-area { padding: 8px 16px 12px; }
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.message-row {
+  animation: fadeInUp 0.2s ease;
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     LOGIN OVERLAY
+     ============================================================ -->
+<div id="login-overlay">
+  <div class="login-card">
+    <div class="logo">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="white"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-3 12H7c-.55 0-1-.45-1-1s.45-1 1-1h10c.55 0 1 .45 1 1s-.45 1-1 1zm0-3H7c-.55 0-1-.45-1-1s.45-1 1-1h10c.55 0 1 .45 1 1s-.45 1-1 1zm0-3H7c-.55 0-1-.45-1-1s.45-1 1-1h10c.55 0 1 .45 1 1s-.45 1-1 1z"/></svg>
+    </div>
+    <h1>BottleChat</h1>
+    <p class="subtitle">瓶子交流器 — 与朋友畅聊</p>
+    <input type="text" id="login-name" placeholder="输入你的昵称" autocomplete="off">
+    <input type="password" id="login-pass" placeholder="密码（随意填写）" autocomplete="off">
+    <button class="login-btn" id="login-btn">登 录</button>
+    <p class="login-hint">提示：输入任意昵称和密码即可进入</p>
+  </div>
+</div>
+
+<!-- ============================================================
+     MAIN APP
+     ============================================================ -->
+<div id="app">
+  <!-- Theme toggle -->
+  <button class="theme-toggle" id="theme-toggle" title="切换色彩方案">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+  </button>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <h2>编辑</h2>
+      <div class="sidebar-header-actions">
+        <button id="collapse-sidebar-btn" title="收起侧栏">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="sidebar-search">
+      <input type="text" id="search-input" placeholder="搜索">
+    </div>
+
+    <div class="conversation-list" id="conversation-list">
+      <!-- Populated by JS -->
+    </div>
+
+    <div id="drag-handle"></div>
+
+    <button class="sidebar-toggle-btn" id="expand-sidebar-btn" title="展开侧栏">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+    </button>
+  </div>
+
+  <!-- Chat area -->
+  <div id="chat-area">
+    <!-- Populated by JS -->
+  </div>
+</div>
+
+<script>
+// ============================================================
+// MOCK DATA
+// ============================================================
+const COLORS = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8','#F7DC6F','#BB8FCE','#85C1E9','#F0B27A','#82E0AA','#F1948A','#AED6F1','#D7BDE2','#A3E4D7'];
+
+function getColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return COLORS[Math.abs(h) % COLORS.length];
+}
+
+const conversations = [
+  {
+    id: 'public',
+    name: '公共聊天室',
+    isGroup: true,
+    pinned: true,
+    avatar: null,
+    avatarIcon: '🌐',
+    online: false,
+    unread: 3,
+    members: ['陈晓雨','张伟','李梦琪','王浩然','刘思远'],
+    messages: [
+      { sender: '陈晓雨', text: '大家好呀，周末有没有人一起出去玩？', time: '09:14' },
+      { sender: '张伟', text: '去爬山怎么样？天气预报说是晴天', time: '09:15' },
+      { sender: '李梦琪', text: '好主意！上次去的那个森林公园就不错', time: '09:16' },
+      { sender: 'self', text: '我也想去！几点出发？', time: '09:17' },
+      { sender: '王浩然', text: '要不九点在地铁站集合？', time: '09:18' },
+      { sender: '陈晓雨', text: '可以可以，记得带水和干粮', time: '09:19' },
+      { sender: '刘思远', text: '我可能晚一点到，你们先走', time: '09:20' },
+      { sender: '张伟', text: '没事，我们等你', time: '09:21' },
+      { sender: 'self', text: '那说好了，周六九点不见不散！', time: '09:22' },
+      { sender: '李梦琪', text: '对了，上次说的那个新开了的奶茶店，回来可以去试试', time: '09:24' },
+      { sender: '陈晓雨', text: '好呀好呀，我看到他们家有新品，芋泥波波奶茶', time: '09:25' },
+      { sender: 'system', text: '刘思远 分享了位置', time: '09:26' },
+      { sender: '王浩然', text: '收到，那就这么定了', time: '09:27' },
+    ]
+  },
+  {
+    id: 'chenxiaoyu',
+    name: '陈晓雨',
+    isGroup: false,
+    pinned: false,
+    online: true,
+    unread: 2,
+    avatar: null,
+    messages: [
+      { sender: 'self', text: '在吗？问你个事儿', time: '14:02' },
+      { sender: 'other', text: '在在在，啥事？', time: '14:03' },
+      { sender: 'other', text: '你说', time: '14:03' },
+      { sender: 'self', text: '上次你推荐的那本书叫什么来着？', time: '14:04' },
+      { sender: 'other', text: '《百年孤独》！马尔克斯写的，超好看', time: '14:05' },
+      { sender: 'self', text: '对对对就是这本！我去买', time: '14:05' },
+      { sender: 'other', text: '你可以先看电子版，微信读书上有', time: '14:06' },
+      { sender: 'other', text: '不过纸质书的手感更好哈哈', time: '14:06' },
+      { sender: 'self', text: '好嘞谢谢！周末请你喝奶茶', time: '14:07' },
+      { sender: 'other', text: '说定了哦！我要大杯的 😄', time: '14:08' },
+    ]
+  },
+  {
+    id: 'zhangwei',
+    name: '张伟',
+    isGroup: false,
+    pinned: false,
+    online: false,
+    unread: 0,
+    avatar: null,
+    messages: [
+      { sender: 'other', text: '哥们，明天下午打球不？', time: '昨天 18:30' },
+      { sender: 'self', text: '几点？我看看有没有空', time: '昨天 18:45' },
+      { sender: 'other', text: '三点，老地方，差一个人', time: '昨天 18:46' },
+      { sender: 'self', text: '行，没问题', time: '昨天 18:47' },
+      { sender: 'other', text: '那就这么说定了，记得带球', time: '昨天 18:48' },
+    ]
+  },
+  {
+    id: 'limengqi',
+    name: '李梦琪',
+    isGroup: false,
+    pinned: false,
+    online: true,
+    unread: 1,
+    avatar: null,
+    messages: [
+      { sender: 'other', text: '今天开会的PPT你做好了吗？', time: '10:15' },
+      { sender: 'self', text: '做了一半，还差数据分析那部分', time: '10:16' },
+      { sender: 'other', text: '我帮你弄图表吧，我这边有最新的数据', time: '10:17' },
+      { sender: 'self', text: '太好了！麻烦你了', time: '10:17' },
+      { sender: 'other', text: '客气啥，咱俩谁跟谁 😂', time: '10:18' },
+      { sender: 'other', text: '对了，老板说下午三点半开会，别忘了', time: '10:20' },
+    ]
+  },
+  {
+    id: 'wanghaoran',
+    name: '王浩然',
+    isGroup: false,
+    pinned: false,
+    online: false,
+    unread: 0,
+    avatar: null,
+    messages: [
+      { sender: 'self', text: '游戏下载好了，晚上一起开黑', time: '周二 20:00' },
+      { sender: 'other', text: 'OK，叫上老刘', time: '周二 20:05' },
+      { sender: 'self', text: '他说他今晚加班，可能来不了', time: '周二 20:06' },
+      { sender: 'other', text: '那咱俩先打，回头再约他', time: '周二 20:07' },
+    ]
+  },
+  {
+    id: 'liusiyuan',
+    name: '刘思远',
+    isGroup: false,
+    pinned: false,
+    online: true,
+    unread: 0,
+    avatar: null,
+    messages: [
+      { sender: 'other', text: '上次说的那个旅行计划，你考虑得怎么样了？', time: '周一 15:00' },
+      { sender: 'self', text: '我查了一下，国庆去云南的话机票挺贵的', time: '周一 15:10' },
+      { sender: 'other', text: '要不我们自驾？租车也方便', time: '周一 15:12' },
+      { sender: 'self', text: '这个主意不错，路线你规划一下？', time: '周一 15:15' },
+      { sender: 'other', text: '行，我来弄，到时候发你看看', time: '周一 15:16' },
+    ]
+  }
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let currentConvId = null;
+let sidebarWidth = 320;
+let isDark = false;
+
+// ============================================================
+// DOM REFS
+// ============================================================
+const loginOverlay = document.getElementById('login-overlay');
+const loginName    = document.getElementById('login-name');
+const loginPass    = document.getElementById('login-pass');
+const loginBtn     = document.getElementById('login-btn');
+const appEl        = document.getElementById('app');
+const sidebar      = document.getElementById('sidebar');
+const chatArea     = document.getElementById('chat-area');
+const convList     = document.getElementById('conversation-list');
+const searchInput  = document.getElementById('search-input');
+const dragHandle   = document.getElementById('drag-handle');
+const themeToggle  = document.getElementById('theme-toggle');
+const collapseBtn  = document.getElementById('collapse-sidebar-btn');
+const expandBtn    = document.getElementById('expand-sidebar-btn');
+
+// ============================================================
+// LOGIN
+// ============================================================
+loginBtn.addEventListener('click', doLogin);
+loginPass.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+loginName.addEventListener('keydown', e => { if (e.key === 'Enter') loginPass.focus(); });
+
+function doLogin() {
+  const name = loginName.value.trim();
+  if (!name) { loginName.focus(); loginName.style.borderColor = '#FF3B30'; return; }
+  loginOverlay.classList.add('hidden');
+  setTimeout(() => {
+    appEl.classList.add('visible');
+    renderConversations();
+    selectConversation(conversations[0].id);
+  }, 300);
+}
+
+// ============================================================
+// RENDER CONVERSATIONS
+// ============================================================
+function renderConversations(filter) {
+  convList.innerHTML = '';
+  const sorted = [...conversations].sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return 0;
+  });
+
+  sorted.forEach(conv => {
+    if (filter) {
+      const q = filter.toLowerCase();
+      if (!conv.name.toLowerCase().includes(q)) {
+        const hasMsg = conv.messages.some(m => m.text.toLowerCase().includes(q));
+        if (!hasMsg) return;
+      }
+    }
+
+    const el = document.createElement('div');
+    el.className = 'conversation-item' + (conv.id === currentConvId ? ' active' : '');
+    el.dataset.id = conv.id;
+
+    const lastMsg = conv.messages[conv.messages.length - 1];
+    const previewText = lastMsg
+      ? (lastMsg.sender === 'system' ? lastMsg.text
+        : lastMsg.sender === 'self' ? '你: ' + lastMsg.text
+        : (conv.isGroup ? lastMsg.sender + ': ' : '') + lastMsg.text)
+      : '';
+
+    const avatarColor = getColor(conv.name);
+    const avatarContent = conv.avatarIcon
+      ? `<span style="font-size:20px">${conv.avatarIcon}</span>`
+      : conv.name.charAt(0);
+
+    const timeLabel = lastMsg ? lastMsg.time : '';
+
+    el.innerHTML = `
+      <div class="conv-avatar" style="background:${avatarColor}">
+        ${avatarContent}
+        ${conv.online ? '<div class="online-dot"></div>' : ''}
+      </div>
+      <div class="conv-info">
+        <div class="conv-name-row">
+          ${conv.pinned ? '<span class="pin-icon">📌</span>' : ''}
+          <span class="conv-name">${conv.name}</span>
+        </div>
+        <span class="conv-preview">${escapeHtml(previewText)}</span>
+      </div>
+      <div class="conv-meta">
+        <span class="conv-time">${timeLabel}</span>
+        ${conv.unread > 0 ? `<span class="conv-badge">${conv.unread}</span>` : ''}
+      </div>
+    `;
+
+    el.addEventListener('click', () => selectConversation(conv.id));
+    convList.appendChild(el);
+  });
+}
+
+// ============================================================
+// SELECT CONVERSATION
+// ============================================================
+function selectConversation(id) {
+  currentConvId = id;
+  const conv = conversations.find(c => c.id === id);
+  if (!conv) return;
+
+  // Clear unread
+  conv.unread = 0;
+
+  // Update sidebar active state
+  document.querySelectorAll('.conversation-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === id);
+  });
+
+  renderConversations(searchInput.value);
+  renderChat(conv);
+}
+
+// ============================================================
+// RENDER CHAT
+// ============================================================
+function renderChat(conv) {
+  const avatarColor = getColor(conv.name);
+  const avatarChar = conv.avatarIcon
+    ? `<span style="font-size:16px">${conv.avatarIcon}</span>`
+    : conv.name.charAt(0);
+
+  let statusText = '';
+  if (conv.isGroup) {
+    statusText = conv.members ? conv.members.length + '位成员' : '群聊';
+  } else if (conv.online) {
+    statusText = '在线';
+  } else {
+    statusText = '离线';
+  }
+
+  chatArea.innerHTML = `
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <div class="chat-header-avatar" style="background:${avatarColor}">${avatarChar}</div>
+        <div>
+          <div class="chat-header-name">${escapeHtml(conv.name)}</div>
+          <div class="chat-header-status">${statusText}</div>
+        </div>
+      </div>
+      <div class="chat-header-right">
+        <button title="信息">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+        </button>
+        <button id="sidebar-expand-chat-btn" title="显示侧栏" style="display:${sidebar.classList.contains('collapsed') ? 'flex' : 'none'}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="messages-container" id="messages-container"></div>
+    <div class="input-area">
+      <div class="input-row">
+        <div class="input-field-wrap">
+          <textarea class="input-field" id="message-input" placeholder="iMessage" rows="1"></textarea>
+        </div>
+        <button class="send-btn" id="send-btn" title="发送">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Render messages
+  const container = document.getElementById('messages-container');
+  renderMessages(container, conv);
+
+  // Bind input
+  const input = document.getElementById('message-input');
+  const sendBtn = document.getElementById('send-btn');
+
+  input.addEventListener('input', () => {
+    sendBtn.classList.toggle('active', input.value.trim().length > 0);
+    autoResize(input);
+  });
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(conv, input, container);
+    }
+  });
+
+  sendBtn.addEventListener('click', () => sendMessage(conv, input, container));
+
+  // Sidebar expand from chat
+  const sidebarExpandChatBtn = document.getElementById('sidebar-expand-chat-btn');
+  if (sidebarExpandChatBtn) {
+    sidebarExpandChatBtn.addEventListener('click', () => {
+      sidebar.classList.remove('collapsed');
+      sidebarExpandChatBtn.style.display = 'none';
+    });
+  }
+
+  // Scroll to bottom
+  requestAnimationFrame(() => {
+    container.scrollTop = container.scrollHeight;
+  });
+}
+
+function renderMessages(container, conv) {
+  container.innerHTML = '';
+  let lastSender = null;
+  let lastTime = null;
+
+  // Add date separator at top
+  const dateSep = document.createElement('div');
+  dateSep.className = 'date-separator';
+  dateSep.innerHTML = '<span>今天</span>';
+  container.appendChild(dateSep);
+
+  conv.messages.forEach((msg, i) => {
+    const isSelf = msg.sender === 'self';
+    const isSystem = msg.sender === 'system';
+    const nextMsg = conv.messages[i + 1];
+    const nextSameSender = nextMsg && nextMsg.sender === msg.sender;
+    const prevSameSender = lastSender === msg.sender;
+    const isNewGroup = !prevSameSender;
+
+    if (isSystem) {
+      const sysEl = document.createElement('div');
+      sysEl.className = 'message-system';
+      sysEl.innerHTML = `<span>${escapeHtml(msg.text)}</span>`;
+      container.appendChild(sysEl);
+      lastSender = msg.sender;
+      lastTime = msg.time;
+      return;
+    }
+
+    // Time separator between groups
+    if (isNewGroup && lastSender !== null) {
+      const timeSep = document.createElement('div');
+      timeSep.className = 'msg-timestamp' + (isSelf ? ' self' : '');
+      timeSep.style.textAlign = isSelf ? 'right' : 'left';
+      timeSep.style.padding = isSelf ? '0' : '0 34px';
+      timeSep.style.opacity = '1';
+      timeSep.textContent = msg.time;
+      container.appendChild(timeSep);
+    }
+
+    const row = document.createElement('div');
+    row.className = 'message-row ' + (isSelf ? 'self' : 'other');
+
+    const showAvatar = !isSelf && !prevSameSender;
+    const showTail = !nextSameSender;
+
+    if (!isSelf) {
+      const senderColor = getColor(msg.sender === 'self' ? '我' : msg.sender);
+      row.innerHTML = `
+        <div class="msg-avatar ${showAvatar ? '' : 'hidden-avatar'}" style="background:${senderColor}">${msg.sender.charAt(0)}</div>
+      `;
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble ' + (showTail ? 'tail' : 'no-tail');
+    bubble.textContent = msg.text;
+    row.appendChild(bubble);
+
+    container.appendChild(row);
+
+    // Show sender name for first message in group (others only, in group chats)
+    if (isNewGroup && !isSelf && conv.isGroup) {
+      const nameEl = document.createElement('div');
+      nameEl.className = 'msg-sender-name';
+      nameEl.textContent = msg.sender;
+      nameEl.style.marginTop = '4px';
+      // Insert before the row
+      container.insertBefore(nameEl, row);
+    }
+
+    lastSender = msg.sender;
+    lastTime = msg.time;
+  });
+}
+
+// ============================================================
+// SEND MESSAGE
+// ============================================================
+function sendMessage(conv, input, container) {
+  const text = input.value.trim();
+  if (!text) return;
+
+  const now = new Date();
+  const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+  conv.messages.push({ sender: 'self', text, time: timeStr });
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('send-btn').classList.remove('active');
+
+  renderMessages(container, conv);
+  renderConversations(searchInput.value);
+
+  requestAnimationFrame(() => {
+    container.scrollTop = container.scrollHeight;
+  });
+}
+
+// ============================================================
+// AUTO RESIZE TEXTAREA
+// ============================================================
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// ============================================================
+// SEARCH
+// ============================================================
+searchInput.addEventListener('input', () => {
+  renderConversations(searchInput.value);
+});
+
+// ============================================================
+// SIDEBAR COLLAPSE / EXPAND
+// ============================================================
+collapseBtn.addEventListener('click', () => {
+  sidebar.classList.add('collapsed');
+  const chatExpandBtn = document.getElementById('sidebar-expand-chat-btn');
+  if (chatExpandBtn) chatExpandBtn.style.display = 'flex';
+});
+
+expandBtn.addEventListener('click', () => {
+  sidebar.classList.remove('collapsed');
+  const chatExpandBtn = document.getElementById('sidebar-expand-chat-btn');
+  if (chatExpandBtn) chatExpandBtn.style.display = 'none';
+});
+
+// ============================================================
+// DRAG RESIZE
+// ============================================================
+let isDragging = false;
+
+dragHandle.addEventListener('mousedown', e => {
+  isDragging = true;
+  dragHandle.classList.add('dragging');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  let newWidth = e.clientX;
+  newWidth = Math.max(200, Math.min(500, newWidth));
+  sidebarWidth = newWidth;
+  sidebar.style.width = newWidth + 'px';
+});
+
+document.addEventListener('mouseup', () => {
+  if (isDragging) {
+    isDragging = false;
+    dragHandle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+});
+
+// ============================================================
+// THEME TOGGLE
+// ============================================================
+themeToggle.addEventListener('click', () => {
+  isDark = !isDark;
+  document.documentElement.classList.toggle('dark', isDark);
+  themeToggle.innerHTML = isDark
+    ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.42 0-.39.39-.39 1.03 0 1.42l1.42 1.42c.39.39 1.03.39 1.42 0 .38-.39.39-1.03 0-1.42L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.42 0-.39.39-.39 1.03 0 1.42l1.42 1.42c.39.39 1.03.39 1.42 0 .39-.39.39-1.03 0-1.42l-1.42-1.42zm1.42-12.37c.39-.39.39-1.03 0-1.42-.39-.39-1.03-.39-1.42 0l-1.42 1.42c-.39.39-.39 1.03 0 1.42.39.39 1.03.39 1.42 0L19.78 4.58zM7.41 18.38c.39.39 1.03.39 1.42 0 .39-.39.39-1.03 0-1.42l-1.42-1.42c-.39-.39-1.03-.39-1.42 0-.39.39-.39 1.03 0 1.42l1.42 1.42z"/></svg>'
+    : '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>';
+});
+
+// ============================================================
+// UTILS
+// ============================================================
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ============================================================
+// INIT — focus login
+// ============================================================
+loginName.focus();
+</script>
+</body>
+</html>

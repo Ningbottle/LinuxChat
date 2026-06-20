@@ -62,10 +62,10 @@ send(fd, body.c_str(), body.size(), 0);
 | `LOGOUT` | `from` | 主动退出 |
 | `BROADCAST` | `from`, `content` | 发公共聊天室消息 |
 | `PRIVATE` | `from`, `to`, `content` | 发私信 |
-| `FRIEND_REQ` | `from`, `to` | 发送好友申请 |
-| `FRIEND_ACK` | `from`, `to`, `content`("accept"\|"reject") | 回应好友申请 |
-| `BLACKLIST_ADD` | `from`, `to` | 将 `to` 加入黑名单 |
-| `BLACKLIST_RM` | `from`, `to` | 将 `to` 移出黑名单 |
+| `FRIEND_REQ` | `from`, `to` | 协议预留：发送好友申请（非本期实现） |
+| `FRIEND_ACK` | `from`, `to`, `content`("accept"\|"reject") | 协议预留：回应好友申请（非本期实现） |
+| `BLACKLIST_ADD` | `from`, `to` | 协议预留：将 `to` 加入黑名单（非本期实现） |
+| `BLACKLIST_RM` | `from`, `to` | 协议预留：将 `to` 移出黑名单（非本期实现） |
 | `HISTORY_REQ` | `from`, `to`("__room__" 或用户名) | 请求历史消息 |
 | `PONG` | （无） | 心跳响应，收到 `PING` 后自动回复 |
 
@@ -78,8 +78,8 @@ send(fd, body.c_str(), body.size(), 0);
 | `PRIVATE` | `from`, `to`, `content`, `timestamp` | 私信 |
 | `USER_LIST` | `data`(在线用户名数组) | 在线用户列表推送 |
 | `NOTIFY` | `content` | 系统通知（如"Alice 加入了聊天室"）|
-| `FRIEND_REQ` | `from`, `to` | 好友申请通知 |
-| `FRIEND_ACK` | `from`, `to`, `content` | 好友申请回应通知 |
+| `FRIEND_REQ` | `from`, `to` | 协议预留：好友申请通知（非本期实现） |
+| `FRIEND_ACK` | `from`, `to`, `content` | 协议预留：好友申请回应通知（非本期实现） |
 | `HISTORY_RESP` | `to`, `data`(消息数组) | 历史消息列表 |
 | `ERROR` | `code`, `content` | 错误通知 |
 | `PING` | （无） | 心跳包，客户端收到后应回复 `PONG` |

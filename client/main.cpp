@@ -1,50 +1,29 @@
 // main.cpp - LinuxChat Qt6 client entry point
-//
-// Flow:
-//   1. Initialize QApplication + high-DPI support
-//   2. Load custom fonts via FontManager
-//   3. Load global stylesheet from Qt resources (:/style.qss)
-//   4. Show LoginDialog -> wait for authentication
-//   5. On success, show MainWindow
 
-#include <QApplication>
-#include <QFile>
+#include <QGuiApplication>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QQmlError>
 #include <QDebug>
-#include <QStyleFactory>
 
 #include "chat_client.h"
+#include "chat_backend.h"
 #include "font_manager.h"
-#include "login_dialog.h"
-#include "main_window.h"
+#include "login_controller.h"
+#include "message_model.h"
+#include "user_model.h"
+#include "session_model.h"
+#include "theme_manager.h"
 
 int main(int argc, char* argv[]) {
-    // High-DPI rounding policy (Qt6)
-    QApplication::setHighDpiScaleFactorRoundingPolicy(
+    // High-DPI rounding policy
+    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 
-    QApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("LinuxChat"));
-    app.setApplicationVersion(QStringLiteral("1.0"));
-    // Prevent Qt from quitting when LoginDialog closes (MainWindow not shown yet)
-    app.setQuitOnLastWindowClosed(false);
+    // Set Qt Quick Controls style BEFORE creating QGuiApplication
+    qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
 
-    // Load custom fonts
-    if (!FontManager::instance().loadFonts()) {
-        qWarning() << "Failed to load custom fonts, using system defaults";
-    }
-
-    // Load global QSS stylesheet from Qt resources
-    QFile style_file(QStringLiteral(":/style.qss"));
-    if (style_file.open(QFile::ReadOnly | QFile::Text)) {
-        app.setStyleSheet(style_file.readAll());
-        style_file.close();
-        qDebug() << "Style sheet loaded successfully";
-    } else {
-        qWarning() << "Failed to load style.qss:" << style_file.errorString();
-    }
-
-    // --- Direct chat UI bypass for fast QSS testing (no server needed) ---
-    // Parse simple CLI flags early: --test-chat | --direct-chat | -t
+    // Parse CLI flags
     bool isTestMode = false;
     for (int i = 1; i < argc; ++i) {
         const QString arg = QString::fromLocal8Bit(argv[i]).toLower();
@@ -54,67 +33,66 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (isTestMode) {
-        qDebug() << "[main] --test-chat mode: launching direct chat UI (no login, no server)";
-        ChatClient client;  // real instance but no connect; sends are no-op
-        MainWindow window(&client, QStringLiteral("DemoUser"), /*testMode=*/true);
-        window.show();
-        window.populateTestData();
+    QGuiApplication app(argc, argv);
+    app.setApplicationName(QStringLiteral("LinuxChat"));
+    app.setApplicationVersion(QStringLiteral("1.0"));
 
-        // Live echo wiring for interactive Send testing (input + bubble styles)
-        // Connect room view send to local append (also privates get echo via their wiring)
-        // We access via a small post-show hook (room is first tab)
-        // For simplicity the populate + extra lambda below gives immediate feedback.
-        QObject::connect(&window, &MainWindow::returnToLoginRequested, [&app, &client]() {
-            qDebug() << "[main] test mode: returnToLoginRequested - returning to login UI state";
-            // Simulate back to login (shows login dialog to fulfill "断开后回到登录状态")
-            LoginDialog login(&client);
-            login.exec();
-        });
-
-        // Simple direct echo for the primary room view send (covers input/send/bubble QSS)
-        // Note: full tab wiring done inside populateTestData + get_or_create
-        qDebug() << "[main] test mode ready. Edit style.qss, rebuild, rerun with -t to iterate.";
-        return app.exec();
+    // Load custom fonts
+    if (!FontManager::instance().loadFonts()) {
+        qWarning() << "Failed to load custom fonts, using system defaults";
     }
 
-    // Create shared protocol client (normal path)
+    // Create C++ instances
     ChatClient client;
+    ChatBackend backend(&client);
+    LoginController loginCtrl(&client);
+    ThemeManager themeMgr;
 
-    // Loop to support return to login after disconnect
-    while (true) {
-        // Show login dialog
-        LoginDialog login(&client);
-        if (login.exec() != QDialog::Accepted) {
-            break; // User cancelled
-        }
+    // When LoginController authenticates, tell ChatBackend the current user
+    QObject::connect(&loginCtrl, &LoginController::authenticated,
+                     &backend, &ChatBackend::setCurrentUser);
 
-        // Login successful - show main window
-        qDebug() << "[main] Login successful, creating MainWindow";
-        MainWindow window(&client, login.username());
-        qDebug() << "[main] Showing MainWindow";
-
-        bool wantReLogin = false;
-        QObject::connect(&window, &MainWindow::returnToLoginRequested, [&wantReLogin, &window]() {
-            wantReLogin = true;
-            window.close();
-        });
-
-        window.show();
-
-        // Request initial history load
-        qDebug() << "[main] Sending history request";
-        client.send_history_req(QStringLiteral("__room__"));
-
-        qDebug() << "[main] Starting event loop for this session";
-        app.exec();
-
-        if (!wantReLogin) {
-            break;
-        }
-        qDebug() << "[main] Returning to login after disconnect";
+    if (isTestMode) {
+        QObject::connect(&loginCtrl, &LoginController::authenticated,
+                         &backend, &ChatBackend::populateTestData);
     }
 
-    qDebug() << "[main] Exiting application";
-    return 0;
+    // Set up QML engine
+    QQmlApplicationEngine engine;
+
+    // Expose context properties
+    engine.rootContext()->setContextProperty(QStringLiteral("chatClient"), &client);
+    engine.rootContext()->setContextProperty(QStringLiteral("chatBackend"), &backend);
+    engine.rootContext()->setContextProperty(QStringLiteral("loginController"), &loginCtrl);
+    engine.rootContext()->setContextProperty(QStringLiteral("themeMgr"), &themeMgr);
+    engine.rootContext()->setContextProperty(QStringLiteral("isTestMode"), isTestMode);
+
+    // Add Qt's QML module path so imports resolve
+    engine.addImportPath("C:/Qt/6.8.3/msvc2022_64/qml");
+
+    // Capture QML warnings
+    QObject::connect(&engine, &QQmlApplicationEngine::warnings, [](const QList<QQmlError> &warnings) {
+        for (const auto &w : warnings) {
+            fprintf(stderr, "[QML WARNING] %s\n", w.toString().toUtf8().constData());
+        }
+        fflush(stderr);
+    });
+
+    // Load QML from file system
+    QString qmlPath = "D:/ChatBox/LinuxChat/client/qml/main.qml";
+    fprintf(stderr, "[main.cpp] Loading QML from: %s\n", qmlPath.toUtf8().constData());
+    fflush(stderr);
+
+    engine.load(QUrl::fromLocalFile(qmlPath));
+
+    fprintf(stderr, "[main.cpp] Root objects: %d\n", engine.rootObjects().size());
+    fflush(stderr);
+
+    if (engine.rootObjects().isEmpty()) {
+        fprintf(stderr, "[main.cpp] FAILED to load QML!\n");
+        fflush(stderr);
+        return -1;
+    }
+
+    return app.exec();
 }

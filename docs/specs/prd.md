@@ -1,6 +1,6 @@
 # PRD — LinuxChat (瓶子交流器 / Bottle Messenger)
 
-Status: Active | Version: 1.0 | Last Updated: 2026-06-17
+Status: Active | Version: 1.0 | Last Updated: 2026-06-19
 
 ## Executive Summary
 
@@ -61,7 +61,7 @@ LinuxChat 是一个基于 **C/S 架构** 的网络即时通讯工具:Linux epoll
 - NFR1 — 服务端用 epoll(level-triggered)+ 线程池,主线程 IO,worker 处理业务
 - NFR2 — SQLite WAL 模式 + 互斥锁,支持并发读
 - NFR3 — 帧格式:[4 字节大端 uint32 长度][JSON UTF-8 正文],16MB 上限
-- NFR4 — 客户端 Qt6 Widgets + QSS 样式,报纸复古 + 紫藤萝瀑布视觉风格
+- NFR4 — 客户端当前运行入口为 Qt6 Widgets + QSS,主题为水墨国风；QML/Qt Quick 迁移脚手架为进行中工作,不替代当前验收路径
 
 ## Risks
 

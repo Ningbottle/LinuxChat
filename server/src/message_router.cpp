@@ -9,9 +9,12 @@
 #include "database.h"
 #include "protocol.h"
 #include "client_session.h"
+#include "log_utils.h"
 
 #include <nlohmann/json.hpp>
 #include <openssl/evp.h>  // EVP API for SHA-256 (OpenSSL 1.1/3.x)
+#include <openssl/rand.h> // RAND_bytes for cryptographic salt generation
+#include <openssl/crypto.h> // CRYPTO_memcmp for timing-safe comparison
 
 #include <iostream>
 #include <sstream>
@@ -21,17 +24,11 @@
 
 using json = nlohmann::json;
 
-/// Returns current time as "[YYYY-MM-DD HH:MM:SS.mmm]" for log lines.
-static std::string now_stamp() {
-    auto now = std::chrono::system_clock::now();
-    auto t   = std::chrono::system_clock::to_time_t(now);
-    auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(
-                   now.time_since_epoch()) % 1000;
-    std::ostringstream oss;
-    oss << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S")
-        << '.' << std::setfill('0') << std::setw(3) << ms.count();
-    return oss.str();
-}
+// ── Input Validation Constants ──────────────────────────────────────
+// Prevent DoS via oversized inputs and enforce reasonable limits.
+static constexpr size_t MAX_USERNAME_LEN = 32;
+static constexpr size_t MAX_PASSWORD_LEN = 128;
+static constexpr size_t MAX_MESSAGE_LEN  = 4096;
 
 // ── Constructor ─────────────────────────────────────────────────────
 
@@ -67,6 +64,51 @@ std::string MessageRouter::sha256_hex(const std::string& input) {
             << static_cast<int>(hash[i]);
     }
     return oss.str();
+}
+
+// Generate a random 16-byte salt as hex string (32 chars)
+// FATAL: RAND_bytes failure is a fatal error because cryptographic randomness
+// is essential for password hashing security. A predictable salt would make
+// passwords vulnerable to rainbow table attacks.
+std::string MessageRouter::generate_salt() {
+    unsigned char salt_bytes[16];
+    // Use OpenSSL RAND for cryptographic randomness
+    if (RAND_bytes(salt_bytes, sizeof(salt_bytes)) != 1) {
+        // This is a fatal error — cryptographic randomness is required
+        throw std::runtime_error("FATAL: RAND_bytes failed — cannot generate cryptographic salt");
+    }
+    std::ostringstream oss;
+    for (unsigned char b : salt_bytes) {
+        oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
+    }
+    return oss.str();
+}
+
+// Hash password with salt: returns "salt_hex:hash_hex"
+std::string MessageRouter::hash_password(const std::string& password) {
+    std::string salt = generate_salt();
+    std::string salted = salt + ":" + password;
+    std::string hash = sha256_hex(salted);
+    return salt + ":" + hash;
+}
+
+// Verify password against stored "salt_hex:hash_hex"
+// Uses CRYPTO_memcmp for timing-safe comparison to prevent timing attacks.
+bool MessageRouter::verify_password(const std::string& password, const std::string& stored) {
+    // Parse "salt:hash" format
+    auto colon_pos = stored.find(':');
+    if (colon_pos == std::string::npos || colon_pos + 1 >= stored.size()) {
+        // Legacy format (plain SHA-256 hash, no salt) — for backward compatibility
+        std::string computed = sha256_hex(password);
+        if (computed.size() != stored.size()) return false;
+        return CRYPTO_memcmp(computed.data(), stored.data(), computed.size()) == 0;
+    }
+    std::string salt = stored.substr(0, colon_pos);
+    std::string expected_hash = stored.substr(colon_pos + 1);
+    std::string salted = salt + ":" + password;
+    std::string computed = sha256_hex(salted);
+    if (computed.size() != expected_hash.size()) return false;
+    return CRYPTO_memcmp(computed.data(), expected_hash.data(), computed.size()) == 0;
 }
 
 int64_t MessageRouter::now_timestamp() {
@@ -113,9 +155,59 @@ bool MessageRouter::is_user_online(const std::string& username) const {
     return online_users_.count(username) > 0;
 }
 
+void MessageRouter::cleanup_login_reservation(const std::string& username) {
+    if (username.empty()) return;
+    std::lock_guard<std::mutex> lock(login_mutex_);
+    login_in_progress_.erase(username);
+}
+
+bool MessageRouter::is_rate_limited(const std::string& ip_address) const {
+    std::lock_guard<std::mutex> lock(rate_limit_mutex_);
+    auto it = login_attempts_.find(ip_address);
+    if (it == login_attempts_.end()) return false;
+
+    auto now = std::chrono::steady_clock::now();
+
+    // Check if block period has expired
+    if (now > it->second.blocked_until) {
+        // Block expired, reset attempts
+        login_attempts_.erase(it);
+        return false;
+    }
+
+    return it->second.count >= MAX_LOGIN_ATTEMPTS;
+}
+
+void MessageRouter::record_failed_login(const std::string& ip_address) {
+    std::lock_guard<std::mutex> lock(rate_limit_mutex_);
+    auto& attempt = login_attempts_[ip_address];
+    auto now = std::chrono::steady_clock::now();
+
+    // Reset if more than 1 minute since first attempt
+    if (attempt.count > 0 && now - attempt.first_attempt > std::chrono::minutes(1)) {
+        attempt.count = 0;
+    }
+
+    if (attempt.count == 0) {
+        attempt.first_attempt = now;
+    }
+
+    attempt.count++;
+
+    // Block if too many attempts
+    if (attempt.count >= MAX_LOGIN_ATTEMPTS) {
+        attempt.blocked_until = now + std::chrono::seconds(BLOCK_DURATION_SEC);
+    }
+}
+
+void MessageRouter::clear_login_attempts(const std::string& ip_address) {
+    std::lock_guard<std::mutex> lock(rate_limit_mutex_);
+    login_attempts_.erase(ip_address);
+}
+
 void MessageRouter::finish_login(ClientSession& session, const std::string& username) {
     // Set session username (marks as authenticated)
-    session.username = username;
+    session.set_username(username);
 
     // Add to online users
     {
@@ -191,11 +283,40 @@ void MessageRouter::handle_register(ClientSession& session, const json& msg) {
         return;
     }
 
-    std::string hash = sha256_hex(password);
+    // Input length validation
+    if (username.size() > MAX_USERNAME_LEN) {
+        Protocol::send_error(session.fd, "INVALID_MSG", "用户名过长（最多32字符）");
+        return;
+    }
+    if (password.size() > MAX_PASSWORD_LEN) {
+        Protocol::send_error(session.fd, "INVALID_MSG", "密码过长（最多128字符）");
+        return;
+    }
+
+    // Reserve username during registration to prevent concurrent duplicate registrations
+    {
+        std::lock_guard<std::mutex> lock(login_mutex_);
+        if (login_in_progress_.count(username)) {
+            Protocol::send_error(session.fd, "ALREADY_LOGGED_IN",
+                                 "该账号正在注册中");
+            return;
+        }
+        login_in_progress_.insert(username);
+    }
+
+    // Track pending login on session for cleanup on disconnect
+    session.set_pending_login(username);
+
+    std::string hash = hash_password(password);
     std::cout << now_stamp() << " [Auth] register hash for " << username
               << " len=" << hash.size() << std::endl;
 
     if (!db_.register_user(username, hash)) {
+        {
+            std::lock_guard<std::mutex> lock(login_mutex_);
+            login_in_progress_.erase(username);
+        }
+        session.clear_pending_login();
         Protocol::send_error(session.fd, "USER_EXISTS", "用户名已存在");
         return;
     }
@@ -203,6 +324,11 @@ void MessageRouter::handle_register(ClientSession& session, const json& msg) {
     // Registration successful: auto-login
     std::cout << now_stamp() << " [Handler] User registered: " << username << "\n";
     finish_login(session, username);
+    session.clear_pending_login();
+    {
+        std::lock_guard<std::mutex> lock(login_mutex_);
+        login_in_progress_.erase(username);
+    }
 }
 
 void MessageRouter::handle_login(ClientSession& session, const json& msg) {
@@ -214,30 +340,83 @@ void MessageRouter::handle_login(ClientSession& session, const json& msg) {
         return;
     }
 
-    // Check if already logged in from another connection
-    if (server_ && server_->find_fd(username) >= 0) {
-        Protocol::send_error(session.fd, "ALREADY_LOGGED_IN",
-                             "该账号已在其他地方登录");
+    // Input length validation
+    if (username.size() > MAX_USERNAME_LEN) {
+        Protocol::send_error(session.fd, "INVALID_MSG", "用户名过长（最多32字符）");
+        return;
+    }
+    if (password.size() > MAX_PASSWORD_LEN) {
+        Protocol::send_error(session.fd, "INVALID_MSG", "密码过长（最多128字符）");
         return;
     }
 
-    std::string hash = sha256_hex(password);
-    std::cout << now_stamp() << " [Auth] verify hash for " << username
-              << " len=" << hash.size() << std::endl;
+    // Rate limiting: check if IP is blocked
+    if (!session.ip_address.empty() && is_rate_limited(session.ip_address)) {
+        Protocol::send_error(session.fd, "RATE_LIMITED", "登录尝试过多，请稍后再试");
+        return;
+    }
 
-    if (!db_.verify_user(username, hash)) {
+    // TOCTOU fix: reserve the username atomically. If two concurrent LOGIN
+    // requests for the same username arrive, only one enters the login flow.
+    // The other gets ALREADY_LOGGED_IN after the first completes.
+    {
+        std::lock_guard<std::mutex> lock(login_mutex_);
+        if (login_in_progress_.count(username)) {
+            Protocol::send_error(session.fd, "ALREADY_LOGGED_IN",
+                                 "该账号正在登录中");
+            return;
+        }
+        // Also check if already online
+        if (server_ && server_->find_session(username) != nullptr) {
+            Protocol::send_error(session.fd, "ALREADY_LOGGED_IN",
+                                 "该账号已在其他地方登录");
+            return;
+        }
+        login_in_progress_.insert(username);
+    }
+
+    // Track pending login on session for cleanup on disconnect
+    session.set_pending_login(username);
+
+    // Verify password (outside login_mutex_ to avoid holding it during DB I/O)
+    // Use salted verification: get stored hash, then verify with salt
+    std::string stored_hash = db_.get_stored_hash(username);
+    std::cout << now_stamp() << " [Auth] verify password for " << username
+              << " stored_hash_len=" << stored_hash.size() << std::endl;
+
+    if (stored_hash.empty() || !verify_password(password, stored_hash)) {
+        // Record failed login attempt for rate limiting
+        if (!session.ip_address.empty()) {
+            record_failed_login(session.ip_address);
+        }
+        // Release reservation on failure
+        {
+            std::lock_guard<std::mutex> lock(login_mutex_);
+            login_in_progress_.erase(username);
+        }
+        session.clear_pending_login();
         Protocol::send_error(session.fd, "WRONG_PASSWORD", "密码错误");
         return;
     }
 
-    // Login successful
+    // Login successful — finish_login will add to online_users_.
+    // Clear rate limiting on success.
+    if (!session.ip_address.empty()) {
+        clear_login_attempts(session.ip_address);
+    }
+    // Release reservation after finish_login completes.
     finish_login(session, username);
+    session.clear_pending_login();
+    {
+        std::lock_guard<std::mutex> lock(login_mutex_);
+        login_in_progress_.erase(username);
+    }
 }
 
 void MessageRouter::handle_logout(ClientSession& session) {
     if (!session.is_authenticated()) return;
 
-    std::string username = session.username;
+    std::string username = session.get_username();
 
     // Remove from online users
     {
@@ -248,7 +427,7 @@ void MessageRouter::handle_logout(ClientSession& session) {
     std::cout << now_stamp() << " [Handler] User logged out: " << username << "\n";
 
     // Clear username before broadcast (so exclude works correctly)
-    session.username.clear();
+    session.clear_username();
 
     // Broadcast updated user list
     broadcast_user_list();
@@ -271,15 +450,22 @@ void MessageRouter::handle_broadcast(ClientSession& session, const json& msg) {
         return;
     }
 
+    // Input length validation
+    if (content.size() > MAX_MESSAGE_LEN) {
+        Protocol::send_error(session.fd, "INVALID_MSG", "消息内容过长（最多4096字符）");
+        return;
+    }
+
     int64_t ts = now_timestamp();
+    std::string sender = session.get_username();
 
     // Store to database
-    db_.store_message(session.username, "__room__", content, ts);
+    db_.store_message(sender, "__room__", content, ts);
 
     // Broadcast to all clients
     json broadcast_msg = {
         {"type",      "BROADCAST"},
-        {"from",      session.username},
+        {"from",      sender},
         {"content",   content},
         {"timestamp", ts}
     };
@@ -297,27 +483,40 @@ void MessageRouter::handle_private(ClientSession& session, const json& msg) {
         return;
     }
 
-    int target_fd = server_ ? server_->find_fd(to) : -1;
-    if (target_fd < 0) {
+    // Input length validation
+    if (to.size() > MAX_USERNAME_LEN) {
+        Protocol::send_error(session.fd, "INVALID_MSG", "用户名过长（最多32字符）");
+        return;
+    }
+    if (content.size() > MAX_MESSAGE_LEN) {
+        Protocol::send_error(session.fd, "INVALID_MSG", "消息内容过长（最多4096字符）");
+        return;
+    }
+
+    // Use find_session instead of find_fd to prevent fd-reuse race condition.
+    // The shared_ptr keeps the target session alive during the send operation.
+    auto target_session = server_ ? server_->find_session(to) : nullptr;
+    if (!target_session) {
         Protocol::send_error(session.fd, "TARGET_OFFLINE", "目标用户不在线");
         return;
     }
 
     int64_t ts = now_timestamp();
+    std::string sender = session.get_username();
 
     // Store to database
-    db_.store_message(session.username, to, content, ts);
+    db_.store_message(sender, to, content, ts);
 
     // Send to target
     json private_msg = {
         {"type",      "PRIVATE"},
-        {"from",      session.username},
+        {"from",      sender},
         {"to",        to},
         {"content",   content},
         {"timestamp", ts}
     };
     if (server_) {
-        server_->send_to_fd(target_fd, private_msg);
+        server_->send_to_fd(target_session->fd, private_msg);
         // Echo back to sender (so sender can see their own message)
         server_->send_to_fd(session.fd, private_msg);
     }

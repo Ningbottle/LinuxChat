@@ -7,6 +7,7 @@
 
 #include "thread_pool.h"
 #include "client_session.h"
+#include <atomic>
 #include <unordered_map>
 #include <memory>
 #include <functional>
@@ -51,9 +52,12 @@ public:
     /// @return false if fd not found or send failed.
     bool send_to_fd(int fd, const nlohmann::json& msg);
 
-    /// Find the fd of an authenticated user by username.
-    /// @return -1 if not found or not online.
-    int find_fd(const std::string& username) const;
+    /// Find the session of an authenticated user by username.
+    /// @return shared_ptr to session, or nullptr if not found/not online.
+    /// NOTE: This is safer than find_fd() which returned a raw fd that could
+    /// become stale between the check and the use. The shared_ptr keeps the
+    /// session alive during the caller's operation.
+    std::shared_ptr<ClientSession> find_session(const std::string& username) const;
 
 private:
     void handle_new_connection();
@@ -68,7 +72,7 @@ private:
     int         epoll_fd_  = -1;
     int         heartbeat_fd_ = -1;  ///< timerfd for heartbeat PING
     int         wakeup_pipe_[2] = {-1, -1}; ///< pipe for stop() wakeup
-    bool        running_ = false;
+    std::atomic<bool> running_{false};  ///< Signal-safe flag for event loop
 
     uint64_t    next_generation_ = 1;  ///< for ClientSession::generation (fd reuse protection)
 
