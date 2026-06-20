@@ -144,7 +144,7 @@ Rectangle {
             radius: Theme.radius.lg
             color: Theme.colors.surface
             border.width: 1
-            border.color: "rgba(255, 255, 255, 0.8)"
+            border.color: "#CCFFFFFF"
             
             // 2. Inner Core
             Rectangle {
@@ -218,7 +218,7 @@ Rectangle {
                         Layout.topMargin: 64
                         Layout.bottomMargin: 64
                         width: 1
-                        color: "rgba(6, 78, 59, 0.1)" // Very subtle dark line
+                        color: "#1A064E3B" // Very subtle dark line
                     }
 
                     // Right Side: Inputs & Actions
@@ -313,7 +313,7 @@ Rectangle {
                                     // Button-in-Button trailing icon
                                     Rectangle {
                                         width: 40; height: 40; radius: 20
-                                        color: "rgba(255,255,255,0.2)"
+                                        color: "#33FFFFFF"
                                         
                                         Text {
                                             anchors.centerIn: parent

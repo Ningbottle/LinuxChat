@@ -47,6 +47,5 @@ ApplicationWindow {
 
     Component.onCompleted: {
         console.log("LinuxChat started");
-        Theme.setSkin("Glass");
     }
 }

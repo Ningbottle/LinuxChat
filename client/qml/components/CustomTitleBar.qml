@@ -40,7 +40,7 @@ Rectangle {
         // Minimize button
         Rectangle {
             width: 46; height: 40
-            color: minMouse.containsMouse ? Theme.colors.sidebarHover : "transparent"
+            color: minMouse.containsMouse ? Theme.colors.border : "transparent"
             Text {
                 anchors.centerIn: parent
                 text: "—"
@@ -58,7 +58,7 @@ Rectangle {
         // Maximize button
         Rectangle {
             width: 46; height: 40
-            color: maxMouse.containsMouse ? Theme.colors.sidebarHover : "transparent"
+            color: maxMouse.containsMouse ? Theme.colors.border : "transparent"
             Text {
                 anchors.centerIn: parent
                 text: Window.window.visibility === Window.Maximized ? "❐" : "□"
@@ -100,6 +100,6 @@ Rectangle {
         text: Window.window.title
         font.family: Theme.fonts.body
         font.pixelSize: 13
-        color: Theme.colors.muted
+        color: Theme.colors.textMuted
     }
 }
