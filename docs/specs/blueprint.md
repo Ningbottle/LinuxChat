@@ -153,12 +153,20 @@ cmake .. -DCMAKE_BUILD_TYPE=Release && make -j$(nproc)
 
 ### Setup — Windows 客户端
 ```powershell
-# 前置: Qt 6.8.0+ msvc2022_64, Visual Studio 2022, CMake 3.16+
-# 可选: Qt Qml/Quick/QuickControls2 模块;缺失时自动走 Widgets-only 构建
+# 前置: Qt 6.8.3 msvc2022_64, Visual Studio 2022, CMake 3.16+
+# 注意: 如果系统未将 CMake 加入环境变量，请使用 Qt 附带的 CMake (通常在 C:\Qt\Tools\CMake_64\bin\cmake.exe)。
+#      编译必须在「x64 Native Tools Command Prompt for VS 2022」或正确配置了 MSVC 环境变量的终端下进行。
 cd client; mkdir build; cd build
-cmake .. -G "Visual Studio 18 2026" -DCMAKE_PREFIX_PATH="D:/Qt/6.8.0/msvc2022_64"
-cmake --build . --config Release
-cd Release; ./linuxchat_client.exe
+
+# 步骤 1：生成工程 (替换为你本地的 CMake 路径和 Qt 路径)
+& "C:\Qt\Tools\CMake_64\bin\cmake.exe" .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="C:\Qt\6.8.3\msvc2022_64"
+
+# 步骤 2：编译构建
+& "C:\Qt\Tools\CMake_64\bin\cmake.exe" --build . --config Release
+
+# 步骤 3：运行
+cd Release
+./linuxchat_client.exe
 ```
 
 ### Dev / Test
