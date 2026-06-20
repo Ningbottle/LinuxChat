@@ -23,6 +23,9 @@ int main(int argc, char* argv[]) {
     // Set Qt Quick Controls style BEFORE creating QGuiApplication
     qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
 
+    // Disable QML disk cache so file changes are picked up
+    qputenv("QML_DISABLE_DISK_CACHE", "1");
+
     // Parse CLI flags
     bool isTestMode = false;
     for (int i = 1; i < argc; ++i) {
@@ -67,8 +70,9 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("themeMgr"), &themeMgr);
     engine.rootContext()->setContextProperty(QStringLiteral("isTestMode"), isTestMode);
 
-    // Add Qt's QML module path so imports resolve
+    // Add Qt's QML module path and bin path so DLLs resolve
     engine.addImportPath("C:/Qt/6.8.3/msvc2022_64/qml");
+    qputenv("PATH", "C:/Qt/6.8.3/msvc2022_64/bin;" + qgetenv("PATH"));
 
     // Capture QML warnings
     QObject::connect(&engine, &QQmlApplicationEngine::warnings, [](const QList<QQmlError> &warnings) {

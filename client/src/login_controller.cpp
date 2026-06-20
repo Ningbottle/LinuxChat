@@ -145,6 +145,8 @@ void LoginController::onErrorReceived(const QString& code, const QString& conten
     m_loginTimer.stop();
     setLoading(false);
     setStatusText(QStringLiteral("[%1] %2").arg(code, content), true);
+    // Reset to Authenticating so user can retry login/register without reconnecting
+    setState(Authenticating);
 }
 
 // ── Timer timeout handlers ──────────────────────────────────────────

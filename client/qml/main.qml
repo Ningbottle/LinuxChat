@@ -4,10 +4,10 @@ import QtQuick.Controls
 ApplicationWindow {
     id: root
     visible: true
-    width: 900
-    height: 640
-    minimumWidth: 600
-    minimumHeight: 400
+    width: 960
+    height: 680
+    minimumWidth: 720
+    minimumHeight: 480
     title: "LinuxChat"
     color: "#F5F5F5"
 
@@ -30,5 +30,9 @@ ApplicationWindow {
                 stackView.pop(null);
             }
         }
+    }
+
+    Component.onCompleted: {
+        console.log("LinuxChat started")
     }
 }

@@ -1,4 +1,3 @@
-pragma Singleton
 import QtQuick
 
 QtObject {
@@ -6,7 +5,7 @@ QtObject {
 
     property string currentSkin: "Minimal"
 
-    // ── Skin data tables (declared BEFORE token accessors) ──
+    // ── Skin data tables ──
 
     property var _d: {
         "Minimal": {
@@ -78,14 +77,14 @@ QtObject {
         "iMessage": { size: 40 }
     }
 
-    // ── Active skin tokens (AFTER data tables) ──
+    // ── Token accessors ──
 
-    property var c: _d[currentSkin] || _d["Minimal"]
-    property var f: _f[currentSkin] || _f["Minimal"]
-    property var s: _s[currentSkin] || _s["Minimal"]
-    property var r: _r[currentSkin] || _r["Minimal"]
-    property var b: _b[currentSkin] || _b["Minimal"]
-    property var a: _a[currentSkin] || _a["Minimal"]
+    property var colors: _d[currentSkin] || _d["Minimal"]
+    property var fonts:  _f[currentSkin] || _f["Minimal"]
+    property var space:  _s[currentSkin] || _s["Minimal"]
+    property var radius: _r[currentSkin] || _r["Minimal"]
+    property var bubble: _b[currentSkin] || _b["Minimal"]
+    property var avatar: _a[currentSkin] || _a["Minimal"]
 
     function setSkin(name) {
         if (_d[name] !== undefined) {

@@ -32,16 +32,8 @@ add_executable(linuxchat_client
     ${RESOURCES}
 )
 
-# QML module — minimal, load from file system for debugging
-qt_add_qml_module(linuxchat_client
-    URI LinuxChat
-    VERSION 1.0
-    QML_FILES
-        qml/main.qml
-        qml/views/LoginDialog.qml
-        qml/views/ChatWindow.qml
-    NO_RESOURCE_TARGET_PATH
-)
+# QML files loaded from file system at runtime — not compiled into binary
+# This allows editing QML without rebuilding
 
 # Include paths
 target_include_directories(linuxchat_client PRIVATE
