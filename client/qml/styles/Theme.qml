@@ -76,12 +76,12 @@ QtObject {
 
     // ── Token accessors ──
 
-    property var colors: _d[currentSkin] || _d["Glass"]
-    property var fonts:  _f[currentSkin] || _f["Glass"]
-    property var space:  _s[currentSkin] || _s["Glass"]
-    property var radius: _r[currentSkin] || _r["Glass"]
-    property var bubble: _b[currentSkin] || _b["Glass"]
-    property var avatar: _a[currentSkin] || _a["Glass"]
+    property var colors: _d[currentSkin] ? _d[currentSkin] : _d["Glass"]
+    property var fonts:  _f[currentSkin] ? _f[currentSkin] : _f["Glass"]
+    property var space:  _s[currentSkin] ? _s[currentSkin] : _s["Glass"]
+    property var radius: _r[currentSkin] ? _r[currentSkin] : _r["Glass"]
+    property var bubble: _b[currentSkin] ? _b[currentSkin] : _b["Glass"]
+    property var avatar: _a[currentSkin] ? _a[currentSkin] : _a["Glass"]
 
     function setSkin(name) {
         if (_d[name] !== undefined) {

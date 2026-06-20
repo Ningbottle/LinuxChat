@@ -10,7 +10,7 @@ ApplicationWindow {
     minimumWidth: 720
     minimumHeight: 480
     title: "LinuxChat"
-    color: Theme.colors.canvas
+    color: Theme.colors ? Theme.colors.canvas : "#F4F4F9"
 
     property bool wasAuthenticated: false
 

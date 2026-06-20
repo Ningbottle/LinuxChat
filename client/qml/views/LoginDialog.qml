@@ -5,7 +5,7 @@ import "../styles"
 import "../components"
 
 Rectangle {
-    color: Theme.colors.canvas
+    color: Theme.colors ? Theme.colors.canvas : "#F4F4F9"
 
     Rectangle {
         anchors.centerIn: parent
