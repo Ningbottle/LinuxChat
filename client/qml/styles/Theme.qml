@@ -10,15 +10,15 @@ QtObject {
 
     property var _d: {
         "Glass": {
-            canvas: "#F4F4F9", surface: "rgba(255, 255, 255, 0.75)", text: "#1E1E24",
-            muted: "#6B7280", subtle: "#9CA3AF", border: "rgba(255, 255, 255, 0.9)",
+            canvas: "#F4F4F9", surface: "#BFFFFFFF", text: "#1E1E24",
+            muted: "#6B7280", subtle: "#9CA3AF", border: "#E6FFFFFF",
             accent: "#4F46E5", accentHover: "#4338CA",
             success: "#10B981", warning: "#F59E0B", danger: "#EF4444",
-            bubbleSelf: "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4F46E5, stop:1 #6366F1)", bubbleOther: "rgba(255, 255, 255, 0.9)",
+            bubbleSelf: "#4F46E5", bubbleOther: "#E6FFFFFF",
             bubbleSelfText: "#FFFFFF", bubbleOtherText: "#1E1E24",
-            sidebarBg: "rgba(255, 255, 255, 0.4)",
-            sidebarActive: "rgba(255, 255, 255, 0.8)",
-            sidebarHover: "rgba(255, 255, 255, 0.6)"
+            sidebarBg: "#66FFFFFF",
+            sidebarActive: "#CCFFFFFF",
+            sidebarHover: "#99FFFFFF"
         },
         "Clean": {
             canvas: "#FFFFFF", surface: "#F9FAFB", text: "#111827",
