@@ -10,7 +10,7 @@ ApplicationWindow {
     minimumWidth: 720
     minimumHeight: 480
     title: "LinuxChat"
-    color: themeMgr.skin().canvas
+    color: Theme.colors.canvas
 
     property bool wasAuthenticated: false
 
@@ -33,16 +33,8 @@ ApplicationWindow {
         }
     }
 
-    Connections {
-        target: themeMgr
-        function onSkinChanged() {
-            console.log("Skin changed to:", themeMgr.currentSkin());
-            Theme.setSkin(themeMgr.currentSkin());
-        }
-    }
-
     Component.onCompleted: {
         console.log("LinuxChat started");
-        Theme.setSkin(themeMgr.currentSkin());
+        Theme.setSkin("Glass");
     }
 }

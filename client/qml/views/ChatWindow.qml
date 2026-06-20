@@ -325,7 +325,7 @@ Rectangle {
                             model: Theme.skinNames
                             currentIndex: Theme.skinNames.indexOf(Theme.currentSkin)
                             onActivated: index => {
-                                themeMgr.setSkin(model[index]);
+                                Theme.setSkin(model[index]);
                             }
                         }
                     }
