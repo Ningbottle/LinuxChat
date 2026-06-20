@@ -9,59 +9,137 @@ Rectangle {
 
     Rectangle {
         anchors.centerIn: parent
-        width: 380; height: 480; radius: Theme.radius.lg !== undefined ? Theme.radius.lg : 12
+        width: 760; height: 480; radius: Theme.radius.lg !== undefined ? Theme.radius.lg : 16
         color: Theme.colors.surface
         border.width: 1; border.color: Theme.colors.border
+        clip: true
 
-        // subtle shadow if possible
-        // shadow could be added here depending on Qt5Compat/Qt6 effects
+        RowLayout {
+            anchors.fill: parent
+            spacing: 0
 
-        ColumnLayout {
-            anchors.fill: parent; anchors.margins: 36; spacing: Theme.space.md
+            // Left side: Branding & Graphic
+            Rectangle {
+                Layout.fillHeight: true
+                Layout.preferredWidth: 340
+                color: Theme.colors.accent
+                radius: Theme.radius.lg !== undefined ? Theme.radius.lg : 16
+                // Square off the right corners so it connects seamlessly to the right panel
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 20
+                    color: Theme.colors.accent
+                }
 
-            Text { 
-                text: "LinuxChat"
-                font.family: Theme.fonts.title
-                font.pixelSize: 24
-                font.weight: Font.Bold
-                color: Theme.colors.text
-                Layout.alignment: Qt.AlignHCenter 
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 40
+                    spacing: 20
+
+                    Image {
+                        source: "qrc:/images/globe.svg"
+                        sourceSize: Qt.size(64, 64)
+                        Layout.alignment: Qt.AlignLeft
+                        opacity: 0.9
+                    }
+
+                    Item { Layout.fillHeight: true }
+
+                    Text {
+                        text: "Welcome to\nLinuxChat."
+                        font.family: Theme.fonts.title
+                        font.pixelSize: 32
+                        font.weight: Font.Bold
+                        color: "#FFFFFF"
+                        lineHeight: 1.2
+                    }
+
+                    Text {
+                        text: "Connect securely with friends across platforms in real time."
+                        font.family: Theme.fonts.body
+                        font.pixelSize: Theme.fonts.bodySize
+                        color: "rgba(255, 255, 255, 0.8)"
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+                    
+                    Item { Layout.preferredHeight: 20 }
+                }
             }
-            Text { 
-                text: "网络即时通信工具"
-                font.family: Theme.fonts.body
-                font.pixelSize: Theme.fonts.bodySize
-                color: Theme.colors.muted
-                Layout.alignment: Qt.AlignHCenter 
-            }
-            Item { Layout.preferredHeight: Theme.space.md }
 
-            LCButton { 
+            // Right side: Login Form
+            Item {
+                Layout.fillHeight: true
                 Layout.fillWidth: true
-                text: loginController.state === 0 ? "连接服务器" : (loginController.state === 1 ? "连接中..." : "已连接")
-                enabled: loginController.state === 0
-                onClicked: loginController.connectToServer("120.55.63.32", 8080)
-            }
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.colors.border }
+                ColumnLayout {
+                    anchors.centerIn: parent
+                    width: 300
+                    spacing: Theme.space.md
 
-            LCTextField { id: uf; Layout.fillWidth: true; placeholderText: "用户名" }
-            LCTextField { id: pwf; Layout.fillWidth: true; placeholderText: "密码"; echoMode: TextInput.Password; Keys.onReturnPressed: doLogin() }
-            Item { Layout.preferredHeight: 4 }
+                    Text { 
+                        text: "Sign In"
+                        font.family: Theme.fonts.title
+                        font.pixelSize: 24
+                        font.weight: Font.Bold
+                        color: Theme.colors.text
+                        Layout.alignment: Qt.AlignLeft 
+                    }
+                    
+                    Item { Layout.preferredHeight: 10 }
 
-            RowLayout { spacing: 10
-                LCButton { Layout.fillWidth: true; text: "登 录"; enabled: loginController.state === 2; onClicked: doLogin() }
-                LCButton { Layout.fillWidth: true; text: "注 册"; enabled: loginController.state === 2; onClicked: loginController.registerUser(uf.text.trim(), pwf.text.trim()) }
-            }
+                    LCTextField { 
+                        id: uf
+                        Layout.fillWidth: true
+                        placeholderText: "用户名 (Username)" 
+                    }
+                    
+                    LCTextField { 
+                        id: pwf
+                        Layout.fillWidth: true
+                        placeholderText: "密码 (Password)"
+                        echoMode: TextInput.Password
+                        Keys.onReturnPressed: doLogin() 
+                    }
+                    
+                    Item { Layout.preferredHeight: 4 }
 
-            Text { 
-                Layout.fillWidth: true
-                horizontalAlignment: Text.AlignHCenter
-                text: loginController.statusText
-                font.family: Theme.fonts.caption
-                font.pixelSize: Theme.fonts.captionSize
-                color: loginController.isError ? Theme.colors.danger : Theme.colors.success
-                visible: text.length > 0 
+                    LCButton { 
+                        Layout.fillWidth: true
+                        text: loginController.state === 0 ? "连接服务器 (Connect)" : (loginController.state === 1 ? "连接中..." : "已连接")
+                        enabled: loginController.state === 0
+                        onClicked: loginController.connectToServer("120.55.63.32", 8080)
+                    }
+
+                    RowLayout { 
+                        spacing: 10
+                        Layout.fillWidth: true
+                        LCButton { 
+                            Layout.fillWidth: true
+                            text: "登 录"
+                            enabled: loginController.state === 2
+                            onClicked: doLogin() 
+                        }
+                        LCButton { 
+                            Layout.fillWidth: true
+                            text: "注 册"
+                            enabled: loginController.state === 2
+                            onClicked: loginController.registerUser(uf.text.trim(), pwf.text.trim()) 
+                        }
+                    }
+
+                    Text { 
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignHCenter
+                        text: loginController.statusText
+                        font.family: Theme.fonts.caption
+                        font.pixelSize: Theme.fonts.captionSize
+                        color: loginController.isError ? Theme.colors.danger : Theme.colors.success
+                        visible: text.length > 0 
+                    }
+                }
             }
         }
     }
