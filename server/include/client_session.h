@@ -5,6 +5,7 @@
 #include <vector>
 #include <mutex>
 #include <cstdint>
+#include <atomic>
 #include <unistd.h>  // close()
 
 /// Holds all state associated with a single connected client.

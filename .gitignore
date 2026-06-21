@@ -51,3 +51,12 @@ desktop.ini
 
 # CDD Runtime
 .cdd-runtime/
+
+# AI Agent & Workspace Files
+.agents/
+.superpowers/
+AGENTS.md
+CLAUDE.md
+TODO.md
+PRESENTATION.md
+DESIGN.md

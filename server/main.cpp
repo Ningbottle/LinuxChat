@@ -40,7 +40,7 @@ static void signal_handler(int /*sig*/) {
 // ── Command Line Parsing ───────────────────────────────────────────
 
 struct Config {
-    int         port     = 8080;
+    int         port     = 18080;
     int         workers  = 4;
     std::string db_path  = "linuxchat.db";
 };
@@ -57,7 +57,7 @@ static Config parse_args(int argc, char* argv[]) {
             cfg.db_path = argv[++i];
         } else if (arg == "--help" || arg == "-h") {
             fmt::print("Usage: linuxchat_server [options]\n"
-                       "  --port, -p <port>      TCP port (default: 8080)\n"
+                       "  --port, -p <port>      TCP port (default: 18080)\n"
                        "  --workers, -w <num>    Worker threads (default: 4)\n"
                        "  --db, -d <path>        Database path (default: linuxchat.db)\n"
                        "  --help, -h             Show this help\n");

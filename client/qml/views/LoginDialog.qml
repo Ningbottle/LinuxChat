@@ -207,7 +207,7 @@ Rectangle {
                                     id: portField
                                     Layout.preferredWidth: 80
                                     placeholderText: "Port" 
-                                    text: "8080"
+                                    text: "18080"
                                 }
                             }
 

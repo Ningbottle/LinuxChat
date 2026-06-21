@@ -148,7 +148,7 @@ Item {
             text: root.fallbackText
             visible: !root.username || root.username === ""
             color: "#64748B"
-            font.family: Theme.fonts.family
+            font.family: Theme.fonts.body
             font.pixelSize: root.size * 0.4
             font.weight: Font.Bold
         }
