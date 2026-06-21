@@ -11,15 +11,33 @@ QtObject {
     // ---------------------------------------------------------
     readonly property QtObject colors: QtObject {
         readonly property color background: "#0E0E0D"    // Deep Ink Charcoal
-        readonly property color surface: "#0AFFFFFF"       // 4% Ethereal White Glass
-        readonly property color surfaceHover: "#14FFFFFF"  // 8% White Glass
-        readonly property color border: "#1AFFFFFF"        // 10% White Border
+        readonly property color surface: "#15FFFFFF"       // Brighter, very transparent white glass
+        readonly property color surfaceHover: "#25FFFFFF"  // Slightly more opaque on hover
+        readonly property color border: "#40FFFFFF"        // 25% White Border
         readonly property color accent: "#899684"          // Muted Sage / Jade
         readonly property color accentHover: "#9BA995"     // Lighter Sage
         readonly property color text: "#F7F6F2"            // Warm Cream Paper
         readonly property color textMuted: "#8C8A85"       // Soft Warm Gray
         readonly property color error: "#B85C5C"           // Muted Brick Red
+
+        // Fallbacks for ChatWindow / components
+        readonly property color canvas: background
+        readonly property color sidebarBg: surface
+        readonly property color sidebarHover: surfaceHover
+        readonly property color sidebarActive: surfaceHover
+        readonly property color success: accent
+        readonly property color danger: error
+        readonly property color subtle: "#4A4A48"
+        readonly property color bubbleSelf: accent
+        readonly property color bubbleOther: surface
+        readonly property color bubbleSelfText: background
+        readonly property color bubbleOtherText: text
     }
+
+    // Add Skin property so Combobox in ChatWindow doesn't break
+    property string currentSkin: "Glass"
+    property var skinNames: ["Glass"]
+    function setSkin(name) { currentSkin = name; }
 
     // ---------------------------------------------------------
     // 2. Typography (Variable Serif + Humanist Sans)
@@ -47,6 +65,9 @@ QtObject {
         readonly property int xxl: 64
         readonly property int xxxl: 120
     }
+    
+    // Alias to satisfy old 'space' references
+    readonly property QtObject space: spacing
 
     // ---------------------------------------------------------
     // 4. Border Radius (Refined curves)
@@ -57,5 +78,15 @@ QtObject {
         readonly property int lg: 24
         readonly property int xl: 32
         readonly property int full: 9999
+    }
+
+    // ---------------------------------------------------------
+    // 5. Bubble System (For Chat UI)
+    // ---------------------------------------------------------
+    readonly property QtObject bubble: QtObject {
+        readonly property int radius: 12
+        readonly property int paddingH: 16
+        readonly property int paddingV: 10
+        readonly property int maxWidth: 480
     }
 }

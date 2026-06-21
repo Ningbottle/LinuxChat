@@ -7,7 +7,7 @@
 
 #include <string>
 #include <vector>
-#include <mutex>
+#include <shared_mutex>
 #include <nlohmann/json.hpp>
 #include <sqlite3.h>
 
@@ -30,10 +30,6 @@ public:
     /// Register a new user. `password_hash` should be "salt_hex:hash_hex" format.
     /// @return true if user was created; false if username already exists or is empty.
     bool register_user(const std::string& username, const std::string& password_hash);
-
-    /// Verify user credentials against stored hash.
-    /// @return true if user exists AND password_hash matches stored hash.
-    bool verify_user(const std::string& username, const std::string& password_hash);
 
     /// Get the stored password hash for a user (for salted verification).
     /// @return stored hash string, or empty string if user not found.
@@ -60,10 +56,9 @@ private:
     void prepare_statements();
 
     sqlite3* db_ = nullptr;
-    mutable std::mutex db_mutex_;
+    mutable std::shared_mutex db_mutex_;
 
     sqlite3_stmt* stmt_register_ = nullptr;
-    sqlite3_stmt* stmt_verify_ = nullptr;
     sqlite3_stmt* stmt_get_hash_ = nullptr;
     sqlite3_stmt* stmt_store_msg_ = nullptr;
     sqlite3_stmt* stmt_hist_room_ = nullptr;

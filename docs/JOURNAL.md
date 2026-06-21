@@ -30,6 +30,12 @@ Important: (add especially important remarks here; can be omitted if there aren'
 
 ## ENTRIES (LATEST ON TOP)
 
+[2026-06-21]
+Context: Frontend build toolchain migration from MSVC to MinGW + Ninja, and resolving frameless window OS-level bugs.
+Decisions: Switched to `mingw_64` and `Ninja` to resolve linking issues with QML/Win32 APIs. Updated `main.cpp` QML import paths to `mingw_64`. Implemented a fallback `onPositionChanged` manual window drag in `CustomTitleBar.qml` since `startSystemMove()` silently fails on some Windows setups. Cleaned up obsolete PRD issues that have been addressed.
+Findings: Hardcoded MSVC paths in C++ prevented MinGW QML modules from loading.
+Risks: Manual drag logic skips Windows snapping features, but guarantees the window is not "stuck".
+
 [2026-06-20]
 Context: Frontend migration from 4 static HTML design prototypes (Minimal, Dense, Motion, iMessage) to a high-fidelity QML UI.
 Decisions: Created `Theme.qml` as a `pragma Singleton` mapped to C++ `ThemeManager::skinName()`. Replaced rudimentary items with `components/LCButton.qml`, `LCTextField.qml`, and `MessageBubble.qml`. Refactored `ChatWindow.qml` and `LoginDialog.qml` to bind directly to `Theme.colors` and `Theme.fonts`.
@@ -52,6 +58,7 @@ Important: All Critical items from user query (oversized, worker crash paths, SH
 Verification notes (2026-06-17): 
 - git status shows 8 files edited.
 - recv_msgs drain + oversized handling reviewed vs test_protocol.cpp (OversizedFrame_ReturnsNullopt still triggers correctly on >16MB header).
+
 - Generation captured+checked in worker path.
 - EVP code path matches previous hex output.
 - Timers + logs added for app-layer vs TCP disconnect distinction.
@@ -60,4 +67,5 @@ Verification notes (2026-06-17):
 
 ## SUMMARIZED (LATEST ON TOP)
 
-
+### CDD Adoption
+Adopted Continuous Driven Development standard methodology. Created AGENTS.md, initialized TODO.md, removed obsolete docs.

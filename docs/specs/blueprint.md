@@ -4,7 +4,7 @@ Status: Active | Version: 1.0 | Last Updated: 2026-06-19
 
 ## Purpose
 
-C/S 架构即时通讯系统:Linux epoll 服务端 ↔ Windows Qt6 客户端,JSON-over-TCP 自定义协议。当前客户端运行入口仍是 Qt Widgets + QSS,同时保留 QML/Qt Quick 迁移脚手架。本文整合原 `ARCHITECTURE.md`(系统结构)与 `CONTRACT.md`(模块契约),作为 CDD 架构契约的唯一来源。原文件已备份至 `docs/legacy/`。
+C/S 架构即时通讯系统:Linux epoll 服务端 ↔ Windows Qt6 客户端,JSON-over-TCP 自定义协议。客户端已全面迁移至 Qt6 QML 架构，采用现代化 Ethereal 主题设计。本文整合原 `ARCHITECTURE.md`(系统结构)与 `CONTRACT.md`(模块契约),作为 CDD 架构契约的唯一来源。
 
 ## Architecture (high-level)
 
@@ -44,17 +44,17 @@ C/S 架构即时通讯系统:Linux epoll 服务端 ↔ Windows Qt6 客户端,JSO
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-- **Components**: EpollServer(主线程 IO) / ThreadPool(N worker 业务) / MessageRouter(业务路由) / Database(SQLite 持久化) / ClientSession(连接态) / ChatClient+LoginDialog+MainWindow+ChatView(当前 Widgets 客户端) / Backend+MessageModel+UserModel+QML placeholder(迁移脚手架)
+- **Components**: EpollServer(主线程 IO) / ThreadPool(N worker 业务) / MessageRouter(业务路由) / Database(SQLite 持久化) / ClientSession(连接态) / ChatClient+Backend+MessageModel+UserModel(C++ 核心业务) / QML UI(现代化客户端界面)
 - **Data flow**: 客户端 QTcpSocket → 服务端 epoll 就绪 → recv_msgs 组帧 → worker 处理 → Database 读写 → send_msg 回客户端
 - **Boundaries**: TCP 帧边界 = 4 字节大端长度 + JSON;session 边界 = fd;线程边界 = 主线程持有 sessions_mutex_,worker 通过 enqueue 解耦
 
 ## Key Invariants (MUST NOT BREAK)
 
-1) **帧格式不变**:每条消息 = `[4 字节大端 uint32 长度][JSON UTF-8 正文]`,长度上限 16MB。客户端与服务端编解码必须严格对齐(见 `docs/protocol.md`)。
+1) **帧格式不变**:每条消息 = `[4 字节大端 uint32 长度][JSON UTF-8 正文]`,长度上限 256KB。客户端与服务端编解码必须严格对齐(见 `docs/protocol.md`)。
 2) **认证前白名单**:未认证 session(`session.username` 为空)只允许 `REGISTER`/`LOGIN`,其余返回 `NOT_AUTHENTICATED`。
 3) **`to="__room__"` 语义**:表示公共聊天室广播历史;`to=用户名` 表示私聊历史。
 4) **广播排除**:登录成功的用户自己也会收到 USER_LIST;离开通知用 `broadcast(msg, exclude_username)` 排除自己。
-5) **线程安全**:所有对 `sessions_` 的访问必须持 `sessions_mutex_`;所有对 SQLite 的访问必须持 `db_mutex_`。
+5) **线程安全**:服务端使用 `std::shared_mutex` 控制并发。读操作（如获取列表）持共享锁（读锁），写操作（如登录、登出修改）持独占锁（写锁）。所有对 SQLite 的访问受到同样的并发控制机制保护，配合 WAL 模式实现高效读写。
 
 ## Interfaces / Contracts
 

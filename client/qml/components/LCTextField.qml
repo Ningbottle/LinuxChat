@@ -8,7 +8,7 @@ TextField {
 
     property color borderColor: Theme.colors.border
     property color focusColor: Theme.colors.accent
-    property color bgColor: Theme.colors.surface
+    property color bgColor: "#CC000000" // Deep glass for better contrast against bright images
     property color textColor: Theme.colors.text
     property int radius: Theme.radius.md
 

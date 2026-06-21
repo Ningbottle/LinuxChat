@@ -15,8 +15,23 @@ Rectangle {
         
         Image {
             id: bgImage
-            source: "qrc:/images/ink_wash_grassland.png"
             fillMode: Image.PreserveAspectCrop
+            
+            property int currentBgIndex: 0
+            property var images: [
+                "qrc:/images/img1_grass.png",
+                "qrc:/images/img2_blue_moon_bright.png",
+                "qrc:/images/img3_blue_moon_dark.png",
+                "qrc:/images/img4_blue_moon_new.png",
+                "qrc:/images/img5_mountain.png",
+                "qrc:/images/img6_bamboo.png"
+            ]
+            source: images[currentBgIndex]
+            
+            Component.onCompleted: {
+                currentBgIndex = Math.floor(Math.random() * images.length);
+            }
+            
             width: parent.width + 100
             height: parent.height + 100
             x: -50; y: -50
@@ -67,16 +82,16 @@ Rectangle {
         Rectangle {
             anchors.fill: parent
             radius: Theme.radius.lg
-            color: Theme.colors.surface
+            color: Qt.rgba(20/255, 20/255, 20/255, 0.3) // More transparent and brighter than solid gray
             border.width: 1
-            border.color: Theme.colors.border
+            border.color: Qt.rgba(1, 1, 1, 0.1)
             
             // 2. Inner Core
             Rectangle {
                 anchors.fill: parent
                 anchors.margins: 10 // The "Double-Bezel" Gap
                 radius: Theme.radius.lg - 10
-                color: Theme.colors.surfaceHover
+                color: Qt.rgba(40/255, 40/255, 40/255, 0.35) // More transparent inner core
                 clip: true
 
                 RowLayout {
@@ -86,7 +101,7 @@ Rectangle {
                     // Left Side: Editorial Branding
                     Rectangle {
                         Layout.fillHeight: true
-                        Layout.preferredWidth: 380
+                        Layout.preferredWidth: 420
                         color: "transparent"
 
                         ColumnLayout {
@@ -116,18 +131,33 @@ Rectangle {
 
                             // Massive Typography
                             Text {
-                                text: "Silence.\nVastness.\nConnection."
-                                font.family: Theme.fonts.display
-                                font.pixelSize: Theme.fonts.h1
+                                id: poemText
+                                text: ""
+                                font.family: "LXGW WenKai"
+                                font.pixelSize: 30 // Slightly smaller to fit better
                                 font.weight: Font.Medium
                                 color: Theme.colors.text
-                                lineHeight: 1.1
+                                lineHeight: 1.4
+                                width: parent.width - 40 // More padding on the right to prevent overlapping the line
+                                wrapMode: Text.WordWrap
+                                
+                                Component.onCompleted: {
+                                    var poems = [
+                                        "行到水穷处\n坐看云起时",
+                                        "大漠孤烟直\n长河落日圆",
+                                        "明月松间照\n清泉石上流",
+                                        "海上生明月\n天涯共此时",
+                                        "落霞与孤鹜齐飞\n秋水共长天一色",
+                                        "会当凌绝顶\n一览众山小"
+                                    ];
+                                    poemText.text = poems[Math.floor(Math.random() * poems.length)];
+                                }
                             }
                             
                             Item { Layout.fillHeight: true }
 
                             Text {
-                                text: "Experience the tranquility of secure, real-time communication. Find your peace."
+                                text: "Experience the tranquility of secure, real-time communication.\nFind your peace."
                                 font.family: Theme.fonts.body
                                 font.pixelSize: Theme.fonts.bodySize
                                 color: Theme.colors.textMuted
@@ -154,7 +184,7 @@ Rectangle {
                         ColumnLayout {
                             anchors.centerIn: parent
                             width: 320
-                            spacing: Theme.spacing.md
+                            spacing: 8 // Reduced spacing to fit everything vertically
 
                             Text { 
                                 text: "Enter the Void"
@@ -163,8 +193,23 @@ Rectangle {
                                 font.weight: Font.Medium
                                 color: Theme.colors.text
                             }
-                            
-                            Item { Layout.preferredHeight: 16 }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                LCTextField { 
+                                    id: hostField
+                                    Layout.fillWidth: true
+                                    placeholderText: "Server IP" 
+                                    text: "120.55.63.32"
+                                }
+                                LCTextField { 
+                                    id: portField
+                                    Layout.preferredWidth: 80
+                                    placeholderText: "Port" 
+                                    text: "8080"
+                                }
+                            }
 
                             LCTextField { 
                                 id: uf
@@ -179,15 +224,13 @@ Rectangle {
                                 echoMode: TextInput.Password
                                 Keys.onReturnPressed: doLogin() 
                             }
-                            
-                            Item { Layout.preferredHeight: 24 }
 
                             // High-end Nested CTA Button
                             Rectangle {
                                 id: loginBtnContainer
                                 Layout.fillWidth: true
-                                height: 56
-                                radius: 28
+                                Layout.preferredHeight: 48
+                                radius: 24
                                 color: Theme.colors.text
                                 
                                 property bool isHovered: false
@@ -256,8 +299,6 @@ Rectangle {
                                     }
                                 }
                             }
-                            
-                            Item { Layout.preferredHeight: 8 }
 
                             RowLayout {
                                 Layout.fillWidth: true
@@ -267,11 +308,13 @@ Rectangle {
                                     text: "New traveler?"
                                     color: Theme.colors.textMuted
                                     font.family: Theme.fonts.body
+                                    font.pixelSize: 15
                                 }
                                 Text {
                                     text: "Create an account"
                                     color: Theme.colors.accent
                                     font.family: Theme.fonts.body
+                                    font.pixelSize: 15
                                     font.weight: Font.Bold
                                     
                                     MouseArea {
@@ -283,12 +326,71 @@ Rectangle {
                                 Item { Layout.fillWidth: true }
                             }
 
+                            Item { Layout.preferredHeight: 8 }
+
+                            // High-end Test Connection Button
+                            Rectangle {
+                                id: testBtnContainer
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 44 // Reduced height from 56 so it's not cut off
+                                radius: 28
+                                color: testBtnContainer.isHovered ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.05) // Brighter background
+                                border.color: Theme.colors.border
+                                border.width: 1
+                                
+                                property bool isHovered: false
+                                property bool isPressed: false
+                                
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: testBtnContainer.isHovered = true
+                                    onExited: {
+                                        testBtnContainer.isHovered = false
+                                        testBtnContainer.isPressed = false
+                                    }
+                                    onPressed: testBtnContainer.isPressed = true
+                                    onReleased: {
+                                        testBtnContainer.isPressed = false
+                                        var host = hostField.text.trim();
+                                        var port = parseInt(portField.text.trim());
+                                        if (host.length > 0 && port > 0) {
+                                            loginController.connectToServer(host, port);
+                                        }
+                                    }
+                                }
+
+                                scale: testBtnContainer.isPressed ? 0.97 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+
+                                RowLayout {
+                                    anchors.centerIn: parent
+                                    spacing: 12
+                                    
+                                    Text {
+                                        text: "Server Status:"
+                                        color: Theme.colors.textMuted
+                                        font.family: Theme.fonts.body
+                                        font.pixelSize: 16 // Increased legibility
+                                    }
+                                    
+                                    Text {
+                                        text: "Test Connection"
+                                        color: Theme.colors.text
+                                        font.family: Theme.fonts.body
+                                        font.pixelSize: 18
+                                        font.weight: Font.Bold
+                                    }
+                                }
+                            }
+
                             Text { 
                                 Layout.fillWidth: true
                                 horizontalAlignment: Text.AlignHCenter
                                 text: loginController.statusText
                                 font.family: Theme.fonts.body
-                                font.pixelSize: Theme.fonts.captionSize
+                                font.pixelSize: 16
                                 color: loginController.isError ? Theme.colors.error : Theme.colors.accent
                                 visible: text.length > 0 
                             }

@@ -11,21 +11,23 @@ ApplicationWindow {
     minimumWidth: 720
     minimumHeight: 480
     title: "LinuxChat"
-    color: Theme.colors ? Theme.colors.canvas : "#F4F4F9"
-    flags: Qt.Window | Qt.FramelessWindowHint
+    color: "transparent"
+    flags: Qt.Window | Qt.FramelessWindowHint | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint
 
     property bool wasAuthenticated: false
 
     CustomTitleBar {
         id: titleBar
+        window: root
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
+        z: 999
     }
 
     StackView {
         id: stackView
-        anchors.top: titleBar.bottom
+        anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom

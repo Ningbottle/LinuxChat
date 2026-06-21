@@ -5,6 +5,11 @@
     <file>fonts/Newsreader-VariableFont_opsz,wght.ttf</file>
     <file>images/globe.svg</file>
     <file>images/wisteria-pattern.svg</file>
-    <file>images/ink_wash_grassland.png</file>
+    <file>images/img1_grass.png</file>
+    <file>images/img2_blue_moon_bright.png</file>
+    <file>images/img3_blue_moon_dark.png</file>
+    <file>images/img4_blue_moon_new.png</file>
+    <file>images/img5_mountain.png</file>
+    <file>images/img6_bamboo.png</file>
   </qresource>
 </RCC>

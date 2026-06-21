@@ -37,7 +37,6 @@ Database::Database(const std::string& db_path) {
 Database::~Database() {
     if (db_) {
         sqlite3_finalize(stmt_register_);
-        sqlite3_finalize(stmt_verify_);
         sqlite3_finalize(stmt_get_hash_);
         sqlite3_finalize(stmt_store_msg_);
         sqlite3_finalize(stmt_hist_room_);
@@ -93,7 +92,6 @@ void Database::prepare_statements() {
     };
 
     prepare("INSERT OR IGNORE INTO users (username, password_hash) VALUES (?, ?);", &stmt_register_);
-    prepare("SELECT password_hash FROM users WHERE username = ?;", &stmt_verify_);
     prepare("SELECT password_hash FROM users WHERE username = ?;", &stmt_get_hash_);
     prepare("INSERT INTO messages (from_user, to_user, content, timestamp) VALUES (?, ?, ?, ?);", &stmt_store_msg_);
     
@@ -116,7 +114,7 @@ bool Database::register_user(const std::string& username, const std::string& pas
         return false;
     }
 
-    std::lock_guard<std::mutex> lock(db_mutex_);
+    std::unique_lock<std::shared_mutex> lock(db_mutex_);
 
     sqlite3_reset(stmt_register_);
     sqlite3_clear_bindings(stmt_register_);
@@ -135,41 +133,23 @@ bool Database::register_user(const std::string& username, const std::string& pas
     return sqlite3_changes(db_) > 0;
 }
 
-bool Database::verify_user(const std::string& username, const std::string& password_hash) {
-    std::lock_guard<std::mutex> lock(db_mutex_);
+std::string Database::get_stored_hash(const std::string& username) {
+    std::shared_lock<std::shared_mutex> lock(db_mutex_);
 
-    sqlite3_reset(stmt_verify_);
-    sqlite3_clear_bindings(stmt_verify_);
-
-    sqlite3_bind_text(stmt_verify_, 1, username.c_str(), -1, SQLITE_TRANSIENT);
-
-    int rc = sqlite3_step(stmt_verify_);
-    bool result = false;
-
-    if (rc == SQLITE_ROW) {
-        const char* stored_hash = reinterpret_cast<const char*>(sqlite3_column_text(stmt_verify_, 0));
-        if (stored_hash && password_hash == stored_hash) {
-            result = true;
-        }
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db_, "SELECT password_hash FROM users WHERE username = ?;", -1, &stmt, nullptr) != SQLITE_OK) {
+        return "";
     }
 
-    return result;
-}
-
-std::string Database::get_stored_hash(const std::string& username) {
-    std::lock_guard<std::mutex> lock(db_mutex_);
-
-    sqlite3_reset(stmt_get_hash_);
-    sqlite3_clear_bindings(stmt_get_hash_);
-
-    sqlite3_bind_text(stmt_get_hash_, 1, username.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
 
     std::string stored;
-    if (sqlite3_step(stmt_get_hash_) == SQLITE_ROW) {
-        const char* hash = reinterpret_cast<const char*>(sqlite3_column_text(stmt_get_hash_, 0));
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char* hash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
         if (hash) stored = hash;
     }
 
+    sqlite3_finalize(stmt);
     return stored;
 }
 
@@ -177,7 +157,7 @@ std::string Database::get_stored_hash(const std::string& username) {
 
 void Database::store_message(const std::string& from, const std::string& to,
                              const std::string& content, int64_t timestamp) {
-    std::lock_guard<std::mutex> lock(db_mutex_);
+    std::unique_lock<std::shared_mutex> lock(db_mutex_);
 
     sqlite3_reset(stmt_store_msg_);
     sqlite3_clear_bindings(stmt_store_msg_);
@@ -198,26 +178,26 @@ std::vector<nlohmann::json> Database::get_history(const std::string& requestor, 
     // Clamp limit to [1, 200]
     limit = std::clamp(limit, 1, 200);
 
-    std::lock_guard<std::mutex> lock(db_mutex_);
+    std::shared_lock<std::shared_mutex> lock(db_mutex_);
 
     sqlite3_stmt* stmt = nullptr;
     
     if (target == "__room__") {
-        stmt = stmt_hist_room_;
-        sqlite3_reset(stmt);
-        sqlite3_clear_bindings(stmt);
+        const char* sql = "SELECT * FROM (SELECT from_user, content, timestamp FROM messages WHERE to_user = ? ORDER BY timestamp DESC LIMIT ?) ORDER BY timestamp ASC;";
+        sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
         sqlite3_bind_text(stmt, 1, target.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(stmt, 2, limit);
     } else {
-        stmt = stmt_hist_priv_;
-        sqlite3_reset(stmt);
-        sqlite3_clear_bindings(stmt);
+        const char* sql = "SELECT * FROM (SELECT from_user, content, timestamp FROM messages WHERE (from_user = ? AND to_user = ?) OR (from_user = ? AND to_user = ?) ORDER BY timestamp DESC LIMIT ?) ORDER BY timestamp ASC;";
+        sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
         sqlite3_bind_text(stmt, 1, requestor.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, target.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 3, target.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 4, requestor.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(stmt, 5, limit);
     }
+
+    if (!stmt) return {};
 
     std::vector<nlohmann::json> result;
     while (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -232,5 +212,6 @@ std::vector<nlohmann::json> Database::get_history(const std::string& requestor, 
         });
     }
 
+    sqlite3_finalize(stmt);
     return result;
 }

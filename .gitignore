@@ -48,3 +48,6 @@ desktop.ini
 *.bak
 *.swp
 *~
+
+# CDD Runtime
+.cdd-runtime/

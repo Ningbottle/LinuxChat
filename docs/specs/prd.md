@@ -61,38 +61,19 @@ LinuxChat 是一个基于 **C/S 架构** 的网络即时通讯工具:Linux epoll
 - NFR1 — 服务端用 epoll(level-triggered)+ 线程池,主线程 IO,worker 处理业务
 - NFR2 — SQLite WAL 模式 + 互斥锁,支持并发读
 - NFR3 — 帧格式:[4 字节大端 uint32 长度][JSON UTF-8 正文],16MB 上限
-- NFR4 — 客户端当前运行入口为 Qt6 Widgets + QSS,主题为水墨国风；QML/Qt Quick 迁移脚手架为进行中工作,不替代当前验收路径
+- NFR4 — 客户端运行入口为 Qt6 QML (Ethereal Frosted Glass 主题),具有水墨国风背景和毛玻璃质感，提供现代化动画体验。
 
 ## Risks
 
 | Risk | Impact | Mitigation |
 |:-----|:-------|:-----------|
-| 连接竞态(epoll 水平触发 + 异步 worker 数据错位) | 间歇性连接失败/登录后断开 | 见 Known Issues #1,TODO Step 01 |
-| fd 复用导致 worker 串话 | 消息发错用户/use-after-close | 见 Known Issues #2,TODO Step 02 |
-| OpenSSL 3.x 废弃 SHA256() API | 服务端编译失败/警告 | 见 Known Issues #3,TODO Step 03 |
+| OpenSSL 3.x 废弃 SHA256() API | 服务端编译失败/警告 | 见 Known Issues #1,TODO Step 03 |
 | 客户端默认连公网 IP | 误以为代码 bug | 已确认是部署配置,非阻塞 |
 
-## Known Issues (审计发现 — 2026-06-17)
+## Known Issues (剩余项)
 
-> 以下问题由 CDD Phase 1 只读审计发现,详见 `docs/JOURNAL.md` 首条记录。优先级排序见 TODO Step 01-03。
-
-### #1 [Critical] epoll 水平触发 + 非阻塞 socket + worker 异步处理 → 数据错位/丢失
-- 位置:`server/src/epoll_server.cpp:191,213-257` + `server/src/protocol.cpp:60-117`
-- 现象:客户端"有时连得上有时连不上";登录瞬间(服务端回 LOGIN_OK+HISTORY+USER_LIST+NOTIFY 多帧)最易触发
-- 根因:`recv_msgs` 单次 recv 4096B;水平触发下未读完的数据立即再次就绪;多帧错位拼接 → 长度前缀读错 → oversized 判定(protocol.cpp:92)→ `return nullopt` → 连接被踢
-
-### #2 [Critical] session 生命周期竞态:worker 持 fd 但 fd 已被复用
-- 位置:`server/src/epoll_server.cpp:235-290`
-- 现象:反复重连时(同一 fd 数字频繁复用)偶发串话/数据写错地方
-- 根因:worker 按值捕获 fd,运行时按 fd 查 session;旧 fd 被 close 后新连接复用同号 fd → worker 操作到错误 session
-
-### #3 [High] OpenSSL 3.x 下 SHA256() 废弃 API
-- 位置:`server/main.cpp:36-47`
-- 影响:新发行版编译告警/潜在符号问题
-
-### #4 [Medium] 客户端连接超时定时器语义混淆
-- 位置:`client/src/login_dialog.cpp:46-57,282-288`
-- 影响:`is_connected()` 判断 TCP 层而非应用层登录态;登录卡住时无独立超时
+### #1 [Resolved] OpenSSL 3.x 下 SHA256() 废弃 API
+- 已通过迁移至 `EVP_MD` 接口解决。
 
 ## Open Questions
 

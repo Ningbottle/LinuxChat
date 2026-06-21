@@ -149,8 +149,6 @@ No source file currently exceeds the 760 LOC refactor-candidate threshold. `clie
 | `docs/superpowers/specs/2026-06-16-bottle-messenger-ui-design.md` | Earlier superpowers UI spec. | 146 | visual direction reference |
 | `docs/superpowers/plans/2026-06-16-bottle-messenger-ui-redesign.md` | Large historical implementation plan. | 1060 | large-reference, not current execution index |
 | `docs/legacy/*` | Pre-CDD document backups. | 325 | legacy README, TODO, CONTRACT, ARCHITECTURE |
-| `ARCHITECTURE.md` | Root architecture summary kept for compatibility. | 166 | current-ish, secondary to blueprint |
-| `CONTRACT.md` | Root module contract kept for compatibility. | 115 | secondary to blueprint |
 | `PRESENTATION.md` | Course presentation material. | 202 | demo/defense content |
 | `client/resources/images/*` | SVG visual assets. | n/a | globe, wisteria pattern |
 | `client/resources/fonts/*` | Embedded fonts. | n/a | LXGW WenKai, Newsreader |

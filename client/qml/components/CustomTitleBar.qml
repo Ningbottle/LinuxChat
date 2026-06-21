@@ -12,9 +12,27 @@ Rectangle {
     property string title: "LinuxChat"
     property Window window: null
 
-    // For dragging the window
-    DragHandler {
-        onActiveChanged: if (active && window) window.startSystemMove()
+    property point clickPos: "0,0"
+
+    // For dragging the window manually via OS
+    MouseArea {
+        anchors.fill: parent
+        
+        onPressed: function(mouse) {
+            if (window) {
+                window.startSystemMove()
+            }
+        }
+        
+        onDoubleClicked: {
+            if (window) {
+                if (window.visibility === Window.Maximized) {
+                    window.showNormal()
+                } else {
+                    window.showMaximized()
+                }
+            }
+        }
     }
 
     RowLayout {
@@ -38,27 +56,33 @@ Rectangle {
 
             // Minimize
             Rectangle {
-                width: 40; height: 40
-                color: minHover.hovered ? Theme.colors.surfaceHover : "transparent"
+                Layout.preferredWidth: 40; Layout.preferredHeight: 40
+                color: minArea.containsMouse ? "#20FFFFFF" : "transparent"
                 
-                HoverHandler { id: minHover }
-                TapHandler { onTapped: if (window) window.showMinimized() }
+                MouseArea {
+                    id: minArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: if (window) window.showMinimized()
+                }
 
                 Rectangle {
                     width: 10; height: 1
-                    color: Theme.colors.text
+                    color: minArea.containsMouse ? "#FFFFFF" : "#80FFFFFF"
                     anchors.centerIn: parent
                 }
             }
 
             // Maximize/Restore
             Rectangle {
-                width: 40; height: 40
-                color: maxHover.hovered ? Theme.colors.surfaceHover : "transparent"
+                Layout.preferredWidth: 40; Layout.preferredHeight: 40
+                color: maxArea.containsMouse ? "#20FFFFFF" : "transparent"
                 
-                HoverHandler { id: maxHover }
-                TapHandler {
-                    onTapped: {
+                MouseArea {
+                    id: maxArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
                         if (window) {
                             if (window.visibility === Window.Maximized) {
                                 window.showNormal()
@@ -72,7 +96,7 @@ Rectangle {
                 Rectangle {
                     width: 10; height: 10
                     color: "transparent"
-                    border.color: Theme.colors.text
+                    border.color: maxArea.containsMouse ? "#FFFFFF" : "#80FFFFFF"
                     border.width: 1
                     anchors.centerIn: parent
                 }
@@ -80,16 +104,20 @@ Rectangle {
 
             // Close
             Rectangle {
-                width: 40; height: 40
-                color: closeHover.hovered ? Theme.colors.error : "transparent"
+                Layout.preferredWidth: 40; Layout.preferredHeight: 40
+                color: closeArea.containsMouse ? "#E81123" : "transparent"
                 
-                HoverHandler { id: closeHover }
-                TapHandler { onTapped: Qt.quit() }
+                MouseArea {
+                    id: closeArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: Qt.quit()
+                }
 
                 Text {
                     text: "×"
                     font.pixelSize: 20
-                    color: closeHover.hovered ? "#FFFFFF" : Theme.colors.text
+                    color: closeArea.containsMouse ? "#FFFFFF" : "#80FFFFFF"
                     anchors.centerIn: parent
                 }
             }

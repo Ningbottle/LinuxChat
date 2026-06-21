@@ -71,8 +71,8 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("isTestMode"), isTestMode);
 
     // Add Qt's QML module path and bin path so DLLs resolve
-    engine.addImportPath("C:/Qt/6.8.3/msvc2022_64/qml");
-    qputenv("PATH", "C:/Qt/6.8.3/msvc2022_64/bin;" + qgetenv("PATH"));
+    engine.addImportPath("C:/Qt/6.8.3/mingw_64/qml");
+    qputenv("PATH", "C:/Qt/6.8.3/mingw_64/bin;C:/Qt/Tools/mingw1310_64/bin;" + qgetenv("PATH"));
 
     // Capture QML warnings
     QObject::connect(&engine, &QQmlApplicationEngine::warnings, [](const QList<QQmlError> &warnings) {
