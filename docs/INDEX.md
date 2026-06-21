@@ -13,8 +13,8 @@ The repository uses Chat-Driven Development (CDD): `README.md` is the runbook en
 - **Key Libraries**: SQLite3, OpenSSL EVP SHA-256, nlohmann::json, Qt Network, Qt Svg.
 - **Architecture**: Windows desktop client -> JSON-over-TCP frames -> Remote Linux host epoll server -> worker-thread message routing -> SQLite WAL persistence.
 - **Protocol**: 4-byte big-endian length prefix + UTF-8 JSON body, 256KB max frame, heartbeat `PING`/`PONG`.
-- **Current UI State**: Widgets runtime with Modern Gray Light theme + QML SplitView migration underway.
-- **Active Work**: `TODO.md` Step 10, Critical architecture fixes + frontend Phase 2 complete. QSS fully rewritten as Dark Slate + Indigo theme.
+- **Current UI State**: Pure QML interface with frameless window and native/custom window controls.
+- **Active Work**: `TODO.md` completed. Architecture stabilized, QML migration complete. CDD contract maintained.
 - **CDD Mode**: Single `docs/INDEX.md`; no `docs/index/` split is active.
 
 ## Diagrams
@@ -23,7 +23,7 @@ The repository uses Chat-Driven Development (CDD): `README.md` is the runbook en
 
 ```mermaid
 flowchart LR
-  User["Student or reviewer"] --> Client["Windows Qt6 Client<br/>Widgets runtime<br/>QML scaffold"]
+  User["Student or reviewer"] --> Client["Windows Qt6 Client<br/>Pure QML<br/>C++ Backend"]
   Client --> Protocol["JSON-over-TCP<br/>4B big-endian length"]
   Protocol --> Server["LinuxChat Server<br/>epoll LT + ThreadPool"]
   Server --> Database["SQLite3 WAL<br/>users + messages"]
@@ -66,12 +66,13 @@ flowchart TB
   MessageRouter --> Database
   MessageRouter --> EpollServer
 
-  ClientMain["client/main.cpp"] --> LoginDialog["LoginDialog"]
-  ClientMain --> MainWindow["MainWindow"]
-  LoginDialog --> ChatClient["ChatClient"]
-  MainWindow --> ChatClient
-  MainWindow --> ChatView["ChatView"]
-  QmlFacade["Backend MessageModel UserModel"] --> ChatClient
+  ClientMain["client/main.cpp"] --> QQmlApplicationEngine["QQmlApplicationEngine"]
+  ClientMain --> ChatClient["ChatClient"]
+  ClientMain --> ChatBackend["ChatBackend"]
+  ClientMain --> ThemeManager["ThemeManager"]
+  QQmlApplicationEngine --> QmlUI["main.qml (Login/ChatView)"]
+  ChatBackend --> ChatClient
+  ChatClient --> Protocol
 ```
 
 ## File And API Inventory

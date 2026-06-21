@@ -34,6 +34,20 @@ Read this file before starting any session.
 - `[x]` Automated tests pass (server compiles)
 - `[x]` Server runs and history displays newest messages first
 
+### Step 03: Architectural Audit & CDD Documentation
+**Status:** `[x]` Completed
+**Goal:** Align all project documentation with the finalized QML frontend and stabilized server logic.
+
+#### Subtasks
+- `[x]` Update `README.md` to reflect Chat-Driven Development (CDD).
+- `[x]` Update `docs/INDEX.md` UI state and component diagrams to purely QML architecture.
+- `[x]` Update `docs/specs/blueprint.md` with Windows MinGW/Ninja build instructions.
+- `[x]` Update `docs/protocol.md` explicit maximum frame size (256KB).
+- `[x]` Write audit completion entry in `docs/JOURNAL.md`.
+
+#### Verification
+- `[x]` Project docs are mutually consistent and match current codebase reality.
+
 ---
 
 ## Step Template

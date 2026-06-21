@@ -40,14 +40,8 @@ Rectangle {
         anchors.leftMargin: Theme.spacing.md
         spacing: 0
 
-        Text {
-            text: root.title
-            font.family: Theme.fonts.body
-            font.pixelSize: Theme.fonts.captionSize
-            color: Theme.colors.textMuted
-            Layout.alignment: Qt.AlignVCenter
-            Layout.fillWidth: true
-        }
+        // Spacer to push controls to the right
+        Item { Layout.fillWidth: true }
 
         // Window Controls
         RowLayout {
@@ -56,8 +50,8 @@ Rectangle {
 
             // Minimize
             Rectangle {
-                Layout.preferredWidth: 40; Layout.preferredHeight: 40
-                color: minArea.containsMouse ? "#20FFFFFF" : "transparent"
+                Layout.preferredWidth: 46; Layout.preferredHeight: 40
+                color: minArea.containsMouse ? "rgba(0,0,0,0.1)" : "transparent"
                 
                 MouseArea {
                     id: minArea
@@ -67,16 +61,16 @@ Rectangle {
                 }
 
                 Rectangle {
-                    width: 10; height: 1
-                    color: minArea.containsMouse ? "#FFFFFF" : "#80FFFFFF"
+                    width: 12; height: 2
+                    color: minArea.containsMouse ? "#1e293b" : "#475569" // Dark slate
                     anchors.centerIn: parent
                 }
             }
 
             // Maximize/Restore
             Rectangle {
-                Layout.preferredWidth: 40; Layout.preferredHeight: 40
-                color: maxArea.containsMouse ? "#20FFFFFF" : "transparent"
+                Layout.preferredWidth: 46; Layout.preferredHeight: 40
+                color: maxArea.containsMouse ? "rgba(0,0,0,0.1)" : "transparent"
                 
                 MouseArea {
                     id: maxArea
@@ -94,17 +88,17 @@ Rectangle {
                 }
 
                 Rectangle {
-                    width: 10; height: 10
+                    width: 12; height: 12
                     color: "transparent"
-                    border.color: maxArea.containsMouse ? "#FFFFFF" : "#80FFFFFF"
-                    border.width: 1
+                    border.color: maxArea.containsMouse ? "#1e293b" : "#475569"
+                    border.width: 2
                     anchors.centerIn: parent
                 }
             }
 
             // Close
             Rectangle {
-                Layout.preferredWidth: 40; Layout.preferredHeight: 40
+                Layout.preferredWidth: 46; Layout.preferredHeight: 40
                 color: closeArea.containsMouse ? "#E81123" : "transparent"
                 
                 MouseArea {
@@ -115,9 +109,10 @@ Rectangle {
                 }
 
                 Text {
-                    text: "×"
-                    font.pixelSize: 20
-                    color: closeArea.containsMouse ? "#FFFFFF" : "#80FFFFFF"
+                    text: "✕"
+                    font.pixelSize: 18
+                    font.weight: Font.Bold
+                    color: closeArea.containsMouse ? "#FFFFFF" : "#475569"
                     anchors.centerIn: parent
                 }
             }

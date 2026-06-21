@@ -31,6 +31,12 @@ Important: (add especially important remarks here; can be omitted if there aren'
 ## ENTRIES (LATEST ON TOP)
 
 [2026-06-21]
+Context: Final architectural audit and comprehensive CDD documentation update to conclude the project plan.
+Decisions: The architecture (epoll reactor + ThreadPool + SQLite WAL + QML frontend) is deemed mature and performant. `get_history` reverse sorting and `crypto_utils.h` cleanups were previously resolved in Step 02. Completed the documentation alignment for `README.md`, `TODO.md`, `blueprint.md`, `protocol.md`, and `INDEX.md`.
+Findings: The initial audit raised concerns about prepared statement caching for read queries (e.g. `get_history`), but creating fresh statements inside `shared_lock` is intentional to allow concurrent readers without race conditions on the stateful `sqlite3_stmt` object. The codebase is solid.
+Risks: The single `db_mutex_` bottleneck could limit write concurrency under massive load, but it's acceptable for the current scope.
+
+[2026-06-21]
 Context: Frontend build toolchain migration from MSVC to MinGW + Ninja, and resolving frameless window OS-level bugs.
 Decisions: Switched to `mingw_64` and `Ninja` to resolve linking issues with QML/Win32 APIs. Updated `main.cpp` QML import paths to `mingw_64`. Implemented a fallback `onPositionChanged` manual window drag in `CustomTitleBar.qml` since `startSystemMove()` silently fails on some Windows setups. Cleaned up obsolete PRD issues that have been addressed.
 Findings: Hardcoded MSVC paths in C++ prevented MinGW QML modules from loading.

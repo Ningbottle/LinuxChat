@@ -14,7 +14,7 @@ LinuxChat is a modern, high-performance client-server chat application designed 
 - **Core Technology**: C++17, Qt 6.8.
 - **UI Framework**: Qt Quick (QML) using a custom "Ethereal Frosted Glass" design system.
 - **Platform**: Cross-platform (developed and tested on Windows).
-- **Design Paradigm**: CDD (Component Driven Development) and strict separation of backend logic from UI rendering.
+- **Design Paradigm**: CDD (Chat-Driven Development) and strict separation of backend logic from UI rendering.
 
 ## Setup & Build
 

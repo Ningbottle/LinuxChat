@@ -53,34 +53,14 @@ Rectangle {
         // Light overlay to ensure text readability
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(255/255, 255/255, 255/255, 0.3)
+            color: Qt.rgba(255/255, 255/255, 255/255, 0.4)
         }
     }
 
     SplitView {
         id: splitView
         anchors.fill: parent
-        anchors.margins: 20 // Margin to show background around the main window
         orientation: Qt.Horizontal
-
-        // Main glass container background
-        Rectangle {
-            z: -1
-            anchors.fill: parent
-            radius: 16
-            color: Qt.rgba(255/255, 255/255, 255/255, 0.45) // bg-glass-panel
-            border.width: 1
-            border.color: Qt.rgba(255/255, 255/255, 255/255, 0.4)
-            
-            // Inner shadow / glow
-            layer.enabled: true
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowColor: "#20000000"
-                shadowBlur: 1.5
-                shadowVerticalOffset: 4
-            }
-        }
 
         // Custom resizable handle
         handle: Rectangle {
@@ -94,17 +74,7 @@ Rectangle {
             SplitView.preferredWidth: 280
             SplitView.minimumWidth: 200
             SplitView.maximumWidth: 400
-            color: Qt.rgba(255/255, 255/255, 255/255, 0.2) // bg-white/20
-            radius: 16
-            
-            // Mask the right corners to be square so it meets the chat area
-            Rectangle {
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: 16
-                color: Qt.rgba(255/255, 255/255, 255/255, 0.2)
-            }
+            color: Qt.rgba(255/255, 255/255, 255/255, 0.4) // bg-white/40
 
             ColumnLayout {
                 anchors.fill: parent
@@ -114,14 +84,9 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 70
-                    color: Qt.rgba(255/255, 255/255, 255/255, 0.3) // bg-white/30
+                    color: Qt.rgba(255/255, 255/255, 255/255, 0.5) // bg-white/50
                     border.width: 1
                     border.color: Qt.rgba(255/255, 255/255, 255/255, 0.3)
-                    
-                    // Top-left rounded corners
-                    radius: 16
-                    Rectangle { anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; height: 16; color: parent.color }
-                    Rectangle { anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 16; color: parent.color }
 
                     RowLayout {
                         anchors.fill: parent; anchors.margins: 16; spacing: 12
@@ -173,7 +138,7 @@ Rectangle {
                     Rectangle {
                         anchors.fill: parent; anchors.margins: 16
                         radius: 8
-                        color: Qt.rgba(255/255, 255/255, 255/255, 0.5) // bg-white/50
+                        color: Qt.rgba(255/255, 255/255, 255/255, 0.6) // bg-white/60
                         border.width: 1; border.color: Qt.rgba(255/255, 255/255, 255/255, 0.4)
                         
                         RowLayout {
@@ -293,17 +258,7 @@ Rectangle {
         // --- MAIN CHAT AREA ---
         Rectangle {
             SplitView.fillWidth: true
-            color: Qt.rgba(255/255, 255/255, 255/255, 0.1) // bg-white/10
-            radius: 16
-            
-            // Mask the left corners to be square
-            Rectangle {
-                anchors.left: parent.left
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: 16
-                color: Qt.rgba(255/255, 255/255, 255/255, 0.1)
-            }
+            color: Qt.rgba(255/255, 255/255, 255/255, 0.3) // bg-white/30
 
             ColumnLayout {
                 anchors.fill: parent; spacing: 0
@@ -311,13 +266,8 @@ Rectangle {
                 // Chat Header
                 Rectangle {
                     Layout.fillWidth: true; Layout.preferredHeight: 64
-                    color: Qt.rgba(255/255, 255/255, 255/255, 0.4) // bg-white/40
+                    color: Qt.rgba(255/255, 255/255, 255/255, 0.6) // bg-white/60
                     border.width: 1; border.color: Qt.rgba(255/255, 255/255, 255/255, 0.3)
-                    
-                    // Top-right rounded corners
-                    radius: 16
-                    Rectangle { anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; height: 16; color: parent.color }
-                    Rectangle { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 16; color: parent.color }
 
                     RowLayout {
                         anchors.fill: parent; anchors.margins: 16; spacing: 12
@@ -457,13 +407,8 @@ Rectangle {
                 // Input Area
                 Rectangle {
                     Layout.fillWidth: true; Layout.preferredHeight: 76; 
-                    color: Qt.rgba(255/255, 255/255, 255/255, 0.4) // bg-white/40
+                    color: Qt.rgba(255/255, 255/255, 255/255, 0.6) // bg-white/60
                     border.width: 1; border.color: Qt.rgba(255/255, 255/255, 255/255, 0.3)
-                    
-                    // Bottom-right rounded corners
-                    radius: 16
-                    Rectangle { anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; height: 16; color: parent.color }
-                    Rectangle { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 16; color: parent.color }
 
                     RowLayout {
                         anchors.fill: parent; anchors.margins: 16; spacing: 12
@@ -471,7 +416,7 @@ Rectangle {
                         Rectangle {
                             Layout.fillWidth: true; Layout.fillHeight: true; 
                             radius: 16
-                            color: Qt.rgba(255/255, 255/255, 255/255, 0.6) // bg-white/60
+                            color: Qt.rgba(255/255, 255/255, 255/255, 0.7) // bg-white/70
                             border.width: 1; border.color: inp.activeFocus ? Qt.rgba(96/255, 165/255, 250/255, 0.8) : Qt.rgba(255/255, 255/255, 255/255, 0.5)
                             
                             Behavior on border.color { ColorAnimation { duration: 150 } }

@@ -64,19 +64,11 @@ Rectangle {
         width: 840; height: 540
         radius: Theme.radius.lg
         color: "transparent"
+        z: 10
 
-        // Haptic Entry Animation (Scale & Fade)
-        scale: 0.95
-        opacity: 0.0
-        Component.onCompleted: {
-            introAnim.start()
-        }
-
-        ParallelAnimation {
-            id: introAnim
-            NumberAnimation { target: loginCard; property: "opacity"; to: 1.0; duration: 1000; easing.type: Easing.OutQuart }
-            NumberAnimation { target: loginCard; property: "scale"; to: 1.0; duration: 1200; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
-        }
+        // Haptic Entry Animation removed for compatibility
+        scale: 1.0
+        opacity: 1.0
 
         // 1. Outer Shell (Glassy Bezel)
         Rectangle {
